@@ -1,13 +1,18 @@
 import { useState, useRef, useCallback } from 'react';
-import { QrCode, Wifi, WifiOff } from 'lucide-react';
+import { QrCode, Wifi, WifiOff, FlaskConical } from 'lucide-react';
 import { AdminUnlockModal } from '@/components/AdminUnlockModal';
+import { TestScanModal } from '@/components/TestScanModal';
+import { useAdmin } from '@/contexts/AdminContext';
 import { getDeviceId } from '@/lib/storage';
+import { Button } from '@/components/ui/button';
 
 export default function ScanScreen() {
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showTestScan, setShowTestScan] = useState(false);
   const [isOnline] = useState(navigator.onLine);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isPressed, setIsPressed] = useState(false);
+  const { isUnlocked } = useAdmin();
 
   const deviceId = getDeviceId();
 
@@ -49,6 +54,20 @@ export default function ScanScreen() {
           </div>
         )}
       </div>
+
+      {/* Test scan button (admin only) */}
+      {isUnlocked && (
+        <div className="absolute top-6 right-6 z-50">
+          <Button
+            variant="outline"
+            onClick={() => setShowTestScan(true)}
+            className="gap-2"
+          >
+            <FlaskConical className="h-4 w-4" />
+            Mode Test
+          </Button>
+        </div>
+      )}
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center max-w-2xl w-full">
@@ -109,6 +128,12 @@ export default function ScanScreen() {
       <AdminUnlockModal 
         open={showAdminModal} 
         onOpenChange={setShowAdminModal} 
+      />
+
+      {/* Test scan modal (admin only) */}
+      <TestScanModal
+        open={showTestScan}
+        onOpenChange={setShowTestScan}
       />
     </div>
   );

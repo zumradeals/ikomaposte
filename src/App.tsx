@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminProvider } from "@/contexts/AdminContext";
 import ScanScreen from "./pages/ScanScreen";
 import AdminConsole from "./pages/AdminConsole";
+import AdminCategories from "./pages/AdminCategories";
+import AdminWorkers from "./pages/AdminWorkers";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +45,8 @@ const App = () => {
               
               {/* Admin console - protected by AdminContext */}
               <Route path="/admin" element={<AdminConsole />} />
+              <Route path="/admin/categories" element={<AdminCategories />} />
+              <Route path="/admin/workers" element={<AdminWorkers />} />
               
               {/* All other routes redirect to scan screen (kiosk mode) */}
               <Route path="*" element={<Navigate to="/" replace />} />
