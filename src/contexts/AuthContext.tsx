@@ -41,37 +41,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer admin check with setTimeout to avoid deadlock
-        if (session?.user) {
-          setTimeout(() => {
-            checkAdminRole(session.user.id).then(setIsAdmin);
-          }, 0);
-        } else {
-          setIsAdmin(false);
-        }
-      }
-    );
+    const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T) => {
+      return Promise.race([
+        promise,
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+      ]);
+    };
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
-        checkAdminRole(session.user.id).then((isAdminUser) => {
-          setIsAdmin(isAdminUser);
-          setIsLoading(false);
-        });
+        setIsLoading(true);
+        // Defer role check to avoid auth callback deadlocks
+        setTimeout(() => {
+          withTimeout(checkAdminRole(session.user.id), 4000, false)
+            .then(setIsAdmin)
+            .finally(() => setIsLoading(false));
+        }, 0);
       } else {
+        setIsAdmin(false);
         setIsLoading(false);
       }
     });
+
+    // THEN check for existing session
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          setIsLoading(true);
+          return withTimeout(checkAdminRole(session.user.id), 4000, false)
+            .then((isAdminUser) => {
+              setIsAdmin(isAdminUser);
+            })
+            .finally(() => setIsLoading(false));
+        }
+
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setIsAdmin(false);
+        setIsLoading(false);
+      });
 
     return () => subscription.unsubscribe();
   }, []);
