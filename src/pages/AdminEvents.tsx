@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/contexts/AdminContext';
-import { useTodayEvents, useDateRangeEvents } from '@/hooks/useWorkEvents';
-import { WorkEventWithWorker, EVENT_LABELS, EVENT_ICONS } from '@/types/work-events';
+import { useTodayEvents } from '@/hooks/useWorkEvents';
+import { WorkEventWithWorker, EVENT_LABELS, EVENT_ICONS, TrustStatus, TRUST_LABELS, TRUST_COLORS } from '@/types/work-events';
 import { 
   Table, 
   TableBody, 
@@ -13,15 +13,24 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { User, Download, Eye, Calendar, RefreshCw } from 'lucide-react';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { User, Download, Eye, Calendar, RefreshCw, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function AdminEvents() {
   const { isUnlocked } = useAdmin();
   const navigate = useNavigate();
-  const { data: events, isLoading, refetch } = useTodayEvents();
+  const [trustFilter, setTrustFilter] = useState<TrustStatus | 'all'>('all');
+  const { data: events, isLoading, refetch } = useTodayEvents(trustFilter);
   const [selectedEvent, setSelectedEvent] = useState<WorkEventWithWorker | null>(null);
 
   if (!isUnlocked) {
@@ -32,7 +41,7 @@ export default function AdminEvents() {
   const handleExportCSV = () => {
     if (!events?.length) return;
 
-    const headers = ['Heure', 'Travailleur', 'Matricule', 'Catégorie', 'Action', 'Device'];
+    const headers = ['Heure', 'Travailleur', 'Matricule', 'Catégorie', 'Action', 'Device', 'Statut', 'Raison'];
     const rows = events.map(event => [
       format(new Date(event.occurred_at), 'HH:mm:ss'),
       event.workers?.nom_affiche || 'N/A',
@@ -40,6 +49,8 @@ export default function AdminEvents() {
       event.workers?.categories?.nom || 'N/A',
       EVENT_LABELS[event.event_type],
       event.device_id,
+      event.trust_status === 'trusted' ? 'VÉRIFIÉ' : 'NON VÉRIFIÉ',
+      event.trust_reason || '-',
     ]);
 
     const csvContent = [
@@ -64,16 +75,76 @@ export default function AdminEvents() {
     }
   };
 
+  const getTrustIcon = (status: TrustStatus) => {
+    return status === 'trusted' ? ShieldCheck : ShieldAlert;
+  };
+
+  // Stats
+  const trustedCount = events?.filter(e => e.trust_status === 'trusted').length || 0;
+  const untrustedCount = events?.filter(e => e.trust_status === 'untrusted').length || 0;
+
   return (
     <AdminLayout title="Flux du jour">
       <div className="space-y-6">
+        {/* Trust summary */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Shield className="w-4 h-4" />
+              <span className="text-sm">Total</span>
+            </div>
+            <p className="text-2xl font-bold">{events?.length || 0}</p>
+          </div>
+          <div className="bg-success/10 rounded-xl p-4 border border-success/20">
+            <div className="flex items-center gap-2 text-success mb-1">
+              <ShieldCheck className="w-4 h-4" />
+              <span className="text-sm">Vérifiés</span>
+            </div>
+            <p className="text-2xl font-bold text-success">{trustedCount}</p>
+          </div>
+          <div className="bg-destructive/10 rounded-xl p-4 border border-destructive/20">
+            <div className="flex items-center gap-2 text-destructive mb-1">
+              <ShieldAlert className="w-4 h-4" />
+              <span className="text-sm">Non vérifiés</span>
+            </div>
+            <p className="text-2xl font-bold text-destructive">{untrustedCount}</p>
+          </div>
+        </div>
+
         {/* Header actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="w-5 h-5" />
-            <span className="font-medium">
-              {format(new Date(), 'EEEE d MMMM yyyy', { locale: fr })}
-            </span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="w-5 h-5" />
+              <span className="font-medium">
+                {format(new Date(), 'EEEE d MMMM yyyy', { locale: fr })}
+              </span>
+            </div>
+            
+            {/* Trust filter */}
+            <Select 
+              value={trustFilter} 
+              onValueChange={(v) => setTrustFilter(v as TrustStatus | 'all')}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrer par statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les événements</SelectItem>
+                <SelectItem value="trusted">
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-success" />
+                    Vérifiés uniquement
+                  </span>
+                </SelectItem>
+                <SelectItem value="untrusted">
+                  <span className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-destructive" />
+                    Non vérifiés
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="flex gap-2">
@@ -114,75 +185,88 @@ export default function AdminEvents() {
                     <TableHead>Travailleur</TableHead>
                     <TableHead className="hidden md:table-cell">Catégorie</TableHead>
                     <TableHead>Action</TableHead>
+                    <TableHead>Statut</TableHead>
                     <TableHead className="hidden lg:table-cell">Device</TableHead>
                     <TableHead className="text-right">Photo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {events.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell className="font-mono text-sm">
-                        {format(new Date(event.occurred_at), 'HH:mm:ss')}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-                            {event.workers?.photo_url ? (
-                              <img 
-                                src={event.workers.photo_url} 
-                                alt="" 
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <User className="w-4 h-4 text-muted-foreground" />
-                            )}
+                  {events.map((event) => {
+                    const TrustIcon = getTrustIcon(event.trust_status as TrustStatus);
+                    return (
+                      <TableRow key={event.id} className={event.trust_status === 'untrusted' ? 'bg-destructive/5' : ''}>
+                        <TableCell className="font-mono text-sm">
+                          {format(new Date(event.occurred_at), 'HH:mm:ss')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+                              {event.workers?.photo_url ? (
+                                <img 
+                                  src={event.workers.photo_url} 
+                                  alt="" 
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <User className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">{event.workers?.nom_affiche || 'N/A'}</p>
+                              <p className="text-xs text-muted-foreground hidden sm:block">
+                                {event.workers?.matricule}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{event.workers?.nom_affiche || 'N/A'}</p>
-                            <p className="text-xs text-muted-foreground hidden sm:block">
-                              {event.workers?.matricule}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {event.workers?.categories?.nom || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium ${getEventBadgeClass(event.event_type)}`}>
-                          <span>{EVENT_ICONS[event.event_type]}</span>
-                          <span className="hidden sm:inline">{EVENT_LABELS[event.event_type]}</span>
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
-                        {event.device_id.slice(0, 8)}...
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {event.snapshot_url ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedEvent(event)}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        ) : event.incident_flag ? (
-                          <span className="text-xs text-destructive">
-                            {event.incident_flag}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {event.workers?.categories?.nom || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium ${getEventBadgeClass(event.event_type)}`}>
+                            <span>{EVENT_ICONS[event.event_type]}</span>
+                            <span className="hidden sm:inline">{EVENT_LABELS[event.event_type]}</span>
                           </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="outline" 
+                            className={TRUST_COLORS[event.trust_status as TrustStatus]}
+                          >
+                            <TrustIcon className="w-3 h-3 mr-1" />
+                            <span className="hidden sm:inline">{TRUST_LABELS[event.trust_status as TrustStatus]}</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
+                          {event.device_id.slice(0, 12)}...
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {event.snapshot_url ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedEvent(event)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          ) : event.incident_flag ? (
+                            <span className="text-xs text-destructive">
+                              {event.incident_flag}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
           )}
         </div>
 
-        {/* Stats summary */}
+        {/* Stats summary by event type */}
         {events && events.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {(['TAKE', 'PAUSE', 'RESUME', 'END'] as const).map((type) => {
@@ -205,8 +289,16 @@ export default function AdminEvents() {
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
               Vérification - {selectedEvent?.workers?.nom_affiche}
+              {selectedEvent && (
+                <Badge 
+                  variant="outline" 
+                  className={TRUST_COLORS[selectedEvent.trust_status as TrustStatus]}
+                >
+                  {TRUST_LABELS[selectedEvent.trust_status as TrustStatus]}
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           
@@ -270,6 +362,18 @@ export default function AdminEvents() {
                 <span className="text-muted-foreground">Device</span>
                 <span className="font-mono text-xs">{selectedEvent.device_id}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Trust Status</span>
+                <span className={`font-medium ${selectedEvent.trust_status === 'trusted' ? 'text-success' : 'text-destructive'}`}>
+                  {selectedEvent.trust_status === 'trusted' ? '✓ Vérifié' : '✗ Non vérifié'}
+                </span>
+              </div>
+              {selectedEvent.trust_reason && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Raison</span>
+                  <span className="text-xs">{selectedEvent.trust_reason}</span>
+                </div>
+              )}
               {selectedEvent.snapshot_hash && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hash</span>

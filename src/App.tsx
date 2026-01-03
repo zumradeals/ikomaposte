@@ -11,6 +11,7 @@ import AdminConsole from "./pages/AdminConsole";
 import AdminCategories from "./pages/AdminCategories";
 import AdminWorkers from "./pages/AdminWorkers";
 import AdminEvents from "./pages/AdminEvents";
+import AdminDevices from "./pages/AdminDevices";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => {
                 {/* Admin console - protected by AdminContext + AuthContext */}
                 <Route path="/admin" element={<AdminConsole />} />
                 <Route path="/admin/events" element={<AdminEvents />} />
+                <Route path="/admin/devices" element={<AdminDevices />} />
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
                 
