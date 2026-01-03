@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useDevices, useEnrollDevice, useUpdateDevice } from '@/hooks/useDevices';
+import { getDeviceId, getDeviceSecret } from '@/lib/storage';
 import { 
   Table, 
   TableBody, 
@@ -32,7 +33,8 @@ import {
   XCircle, 
   AlertCircle,
   Copy,
-  Check
+  Check,
+  Smartphone
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -52,10 +54,18 @@ export default function AdminDevices() {
   const [enrollLabel, setEnrollLabel] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  if (!isUnlocked) {
-    navigate('/');
-    return null;
-  }
+  // Current device info
+  const currentDeviceId = getDeviceId();
+  const currentDeviceSecret = getDeviceSecret();
+  const isCurrentDeviceEnrolled = devices?.some(d => d.device_id === currentDeviceId) ?? false;
+
+  useEffect(() => {
+    if (!isUnlocked) {
+      navigate('/');
+    }
+  }, [isUnlocked, navigate]);
+
+  if (!isUnlocked) return null;
 
   const handleEnroll = async () => {
     if (!enrollDeviceId || !enrollDeviceSecret) {
@@ -86,6 +96,13 @@ export default function AdminDevices() {
     });
   };
 
+  const handleEnrollCurrentDevice = () => {
+    setEnrollDeviceId(currentDeviceId);
+    setEnrollDeviceSecret(currentDeviceSecret);
+    setEnrollLabel(`Tablette Admin (${navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Edge') ? 'Edge' : 'Autre'})`);
+    setShowEnrollModal(true);
+  };
+
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -108,6 +125,43 @@ export default function AdminDevices() {
             </div>
           </div>
         </div>
+
+        {/* Current device status */}
+        {!isCurrentDeviceEnrolled && (
+          <div className="bg-warning/10 rounded-xl p-4 border border-warning/20">
+            <div className="flex items-start gap-3">
+              <Smartphone className="w-5 h-5 text-warning mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-warning">Cet appareil n'est pas enrôlé</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Device ID: <code className="bg-muted px-1 rounded text-xs">{currentDeviceId}</code>
+                </p>
+                <Button 
+                  size="sm" 
+                  className="mt-2" 
+                  onClick={handleEnrollCurrentDevice}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Enrôler cet appareil
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isCurrentDeviceEnrolled && (
+          <div className="bg-success/10 rounded-xl p-4 border border-success/20">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-success" />
+              <div>
+                <p className="font-medium text-success">Cet appareil est enrôlé</p>
+                <p className="text-sm text-muted-foreground">
+                  Device ID: <code className="bg-muted px-1 rounded text-xs">{currentDeviceId}</code>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

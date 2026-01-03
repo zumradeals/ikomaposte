@@ -213,6 +213,7 @@ export function useCreateWorkEvent() {
 }
 
 // Upload snapshot to storage
+// Returns the file PATH (not URL) for storage in work_events.snapshot_url
 export async function uploadSnapshot(
   blob: Blob,
   deviceId: string,
@@ -234,13 +235,10 @@ export async function uploadSnapshot(
   // Generate a simple hash (timestamp + size based)
   const hash = `${Date.now()}-${blob.size}`;
 
-  // Get URL (signed URL for private bucket)
-  const { data } = await supabase.storage
-    .from('work-snapshots')
-    .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
-
+  // Return the file PATH (not signed URL)
+  // The admin interface will generate signed URLs when displaying
   return {
-    url: data?.signedUrl || filePath,
+    url: filePath, // Store PATH, not URL
     hash,
   };
 }
