@@ -41,11 +41,15 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
   }, []);
 
   const handleActionClick = (action: WorkEventType) => {
+    // Prevent multiple clicks while processing
+    if (isProcessing) return;
+
     if (!allowedActions.includes(action)) {
       toast({
         title: 'Action non autorisée',
         description: getTransitionErrorMessage(currentState, action),
         variant: 'destructive',
+        duration: 4000, // Longer duration so user can read
       });
       return;
     }
@@ -55,6 +59,7 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
       toast({
         title: 'Patientez',
         description: 'La caméra n\'est pas encore prête.',
+        duration: 3000,
       });
       return;
     }
@@ -65,6 +70,7 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
         title: 'Capture requise',
         description: 'La caméra est indisponible. Action bloquée en mode strict.',
         variant: 'destructive',
+        duration: 4000,
       });
       return;
     }
@@ -97,12 +103,13 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
       toast({
         title: EVENT_LABELS[action],
         description: `${worker.nom_affiche} - Enregistré avec succès`,
+        duration: 3000, // 3 seconds to read confirmation
       });
 
-      // Auto-return after 1.5 seconds
+      // Auto-return after 2 seconds
       setTimeout(() => {
         onComplete();
-      }, 1500);
+      }, 2000);
       
     } catch (error) {
       console.error('Action error:', error);

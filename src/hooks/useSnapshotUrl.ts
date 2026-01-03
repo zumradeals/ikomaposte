@@ -13,6 +13,34 @@ interface UseSnapshotUrlResult {
 }
 
 /**
+ * Extract the storage path from a signed URL or return the path as-is
+ */
+function extractPathFromUrl(snapshotUrl: string, bucketName: string): string {
+  // If it's already just a path, return it
+  if (!snapshotUrl.startsWith('http://') && !snapshotUrl.startsWith('https://')) {
+    return snapshotUrl;
+  }
+
+  // Try to extract path from signed URL pattern:
+  // .../storage/v1/object/sign/bucket-name/path?token=...
+  const signedPattern = new RegExp(`/storage/v1/object/sign/${bucketName}/(.+?)\\?`);
+  const signedMatch = snapshotUrl.match(signedPattern);
+  if (signedMatch?.[1]) {
+    return decodeURIComponent(signedMatch[1]);
+  }
+
+  // Try public URL pattern: .../storage/v1/object/public/bucket-name/path
+  const publicPattern = new RegExp(`/storage/v1/object/public/${bucketName}/(.+)`);
+  const publicMatch = snapshotUrl.match(publicPattern);
+  if (publicMatch?.[1]) {
+    return decodeURIComponent(publicMatch[1].split('?')[0]);
+  }
+
+  // Couldn't extract, return original
+  return snapshotUrl;
+}
+
+/**
  * Generate a signed URL for a snapshot stored in private bucket
  * @param snapshotUrl - Can be a path (e.g., "device_id/date/worker/event.webp") or existing signed URL
  * @param bucketName - Storage bucket name, defaults to 'work-snapshots'
@@ -32,22 +60,18 @@ export function useSnapshotUrl(
       return;
     }
 
-    // If already a full URL (signed or public), use directly
-    if (snapshotUrl.startsWith('http://') || snapshotUrl.startsWith('https://')) {
-      setSignedUrl(snapshotUrl);
-      setError(null);
-      return;
-    }
-
-    // Otherwise, it's a path - generate signed URL
+    // Always extract the path and generate a fresh signed URL
+    // This handles both paths and expired signed URLs
     const generateSignedUrl = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
+        const storagePath = extractPathFromUrl(snapshotUrl, bucketName);
+        
         const { data, error: signError } = await supabase.storage
           .from(bucketName)
-          .createSignedUrl(snapshotUrl, 60 * 60); // 1 hour expiry
+          .createSignedUrl(storagePath, 60 * 60); // 1 hour expiry
 
         if (signError) {
           throw signError;
