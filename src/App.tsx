@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminProvider } from "@/contexts/AdminContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import ScanScreen from "./pages/ScanScreen";
 import AdminConsole from "./pages/AdminConsole";
 import AdminCategories from "./pages/AdminCategories";
@@ -35,24 +36,26 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AdminProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Main kiosk screen - always accessible */}
-              <Route path="/" element={<ScanScreen />} />
-              
-              {/* Admin console - protected by AdminContext */}
-              <Route path="/admin" element={<AdminConsole />} />
-              <Route path="/admin/categories" element={<AdminCategories />} />
-              <Route path="/admin/workers" element={<AdminWorkers />} />
-              
-              {/* All other routes redirect to scan screen (kiosk mode) */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </AdminProvider>
+        <AuthProvider>
+          <AdminProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                {/* Main kiosk screen - always accessible */}
+                <Route path="/" element={<ScanScreen />} />
+                
+                {/* Admin console - protected by AdminContext + AuthContext */}
+                <Route path="/admin" element={<AdminConsole />} />
+                <Route path="/admin/categories" element={<AdminCategories />} />
+                <Route path="/admin/workers" element={<AdminWorkers />} />
+                
+                {/* All other routes redirect to scan screen (kiosk mode) */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </AdminProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
