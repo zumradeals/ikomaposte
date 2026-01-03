@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, AlertCircle } from 'lucide-react';
+import { Lock, AlertCircle, Wrench } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { repairSession } from '@/lib/session-repair';
+import { useToast } from '@/hooks/use-toast';
 
 interface AdminUnlockModalProps {
   open: boolean;
@@ -16,6 +20,8 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
   const { attemptUnlock } = useAdmin();
+  const { user, isAdmin } = useAuth();
+  const { toast } = useToast();
 
   // Focus first input when modal opens
   useEffect(() => {
@@ -63,7 +69,14 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
       
       if (success) {
         onOpenChange(false);
-        navigate('/admin');
+        
+        // If already authenticated as admin, go directly to dashboard
+        // Otherwise, navigate to admin (which will show login form)
+        if (user && isAdmin) {
+          navigate('/admin');
+        } else {
+          navigate('/admin');
+        }
       } else {
         setError(true);
         setPin(['', '', '', '']);
@@ -72,6 +85,15 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRepairSession = async () => {
+    toast({ 
+      title: 'Réparation en cours...', 
+      description: 'La page va se recharger.' 
+    });
+    onOpenChange(false);
+    await repairSession();
   };
 
   return (
@@ -86,8 +108,8 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
           </DialogTitle>
         </DialogHeader>
         
-        <div className="py-8">
-          <p className="text-center text-muted-foreground mb-8 text-lg">
+        <div className="py-6">
+          <p className="text-center text-muted-foreground mb-6 text-lg">
             Entrez le code PIN à 4 chiffres
           </p>
           
@@ -111,7 +133,7 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
           
           {/* Error message */}
           {error && (
-            <div className="flex items-center justify-center gap-2 text-destructive animate-fade-in">
+            <div className="flex items-center justify-center gap-2 text-destructive animate-fade-in mb-4">
               <AlertCircle className="w-5 h-5" />
               <span className="text-lg">Code incorrect</span>
             </div>
@@ -119,10 +141,23 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
           
           {/* Loading state */}
           {loading && (
-            <div className="flex justify-center">
+            <div className="flex justify-center mb-4">
               <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
             </div>
           )}
+
+          {/* Session repair button */}
+          <div className="border-t border-border pt-4 mt-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full text-muted-foreground"
+              onClick={handleRepairSession}
+            >
+              <Wrench className="w-4 h-4 mr-2" />
+              Problème de connexion ? Réparer la session
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

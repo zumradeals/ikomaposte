@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useTodayEvents } from '@/hooks/useWorkEvents';
+import { useSnapshotUrl } from '@/hooks/useSnapshotUrl';
 import { WorkEventWithWorker, EVENT_LABELS, EVENT_ICONS, TrustStatus, TRUST_LABELS, TRUST_COLORS } from '@/types/work-events';
 import { 
   Table, 
@@ -22,9 +23,51 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { User, Download, Eye, Calendar, RefreshCw, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { User, Download, Eye, Calendar, RefreshCw, Shield, ShieldAlert, ShieldCheck, Loader2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+
+// Component for displaying snapshot with signed URL
+function SnapshotImage({ snapshotUrl, className }: { snapshotUrl: string | null; className?: string }) {
+  const { signedUrl, isLoading, error } = useSnapshotUrl(snapshotUrl);
+
+  if (!snapshotUrl) {
+    return (
+      <div className={`flex items-center justify-center bg-muted ${className}`}>
+        <p className="text-muted-foreground text-sm">Pas de snapshot</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className={`flex items-center justify-center bg-muted ${className}`}>
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-destructive/10 ${className}`}>
+        <AlertTriangle className="w-8 h-8 text-destructive mb-2" />
+        <p className="text-destructive text-xs text-center px-2">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={signedUrl || ''} 
+      alt="Snapshot"
+      className={`object-cover ${className}`}
+      onError={(e) => {
+        const target = e.target as HTMLImageElement;
+        target.style.display = 'none';
+      }}
+    />
+  );
+}
 
 export default function AdminEvents() {
   const { isUnlocked } = useAdmin();
@@ -33,10 +76,13 @@ export default function AdminEvents() {
   const { data: events, isLoading, refetch } = useTodayEvents(trustFilter);
   const [selectedEvent, setSelectedEvent] = useState<WorkEventWithWorker | null>(null);
 
-  if (!isUnlocked) {
-    navigate('/');
-    return null;
-  }
+  useEffect(() => {
+    if (!isUnlocked) {
+      navigate('/');
+    }
+  }, [isUnlocked, navigate]);
+
+  if (!isUnlocked) return null;
 
   const handleExportCSV = () => {
     if (!events?.length) return;
@@ -49,7 +95,7 @@ export default function AdminEvents() {
       event.workers?.categories?.nom || 'N/A',
       EVENT_LABELS[event.event_type],
       event.device_id,
-      event.trust_status === 'trusted' ? 'VÉRIFIÉ' : 'NON VÉRIFIÉ',
+      event.trust_status === 'trusted' ? 'TRUSTED' : 'UNTRUSTED',
       event.trust_reason || '-',
     ]);
 
@@ -80,8 +126,9 @@ export default function AdminEvents() {
   };
 
   // Stats
-  const trustedCount = events?.filter(e => e.trust_status === 'trusted').length || 0;
-  const untrustedCount = events?.filter(e => e.trust_status === 'untrusted').length || 0;
+  const allEvents = events || [];
+  const trustedCount = allEvents.filter(e => e.trust_status === 'trusted').length;
+  const untrustedCount = allEvents.filter(e => e.trust_status === 'untrusted').length;
 
   return (
     <AdminLayout title="Flux du jour">
@@ -93,21 +140,32 @@ export default function AdminEvents() {
               <Shield className="w-4 h-4" />
               <span className="text-sm">Total</span>
             </div>
-            <p className="text-2xl font-bold">{events?.length || 0}</p>
+            <p className="text-2xl font-bold">{allEvents.length}</p>
           </div>
           <div className="bg-success/10 rounded-xl p-4 border border-success/20">
             <div className="flex items-center gap-2 text-success mb-1">
               <ShieldCheck className="w-4 h-4" />
-              <span className="text-sm">Vérifiés</span>
+              <span className="text-sm">Trusted</span>
             </div>
             <p className="text-2xl font-bold text-success">{trustedCount}</p>
           </div>
           <div className="bg-destructive/10 rounded-xl p-4 border border-destructive/20">
             <div className="flex items-center gap-2 text-destructive mb-1">
               <ShieldAlert className="w-4 h-4" />
-              <span className="text-sm">Non vérifiés</span>
+              <span className="text-sm">Untrusted</span>
             </div>
             <p className="text-2xl font-bold text-destructive">{untrustedCount}</p>
+          </div>
+        </div>
+
+        {/* Info banner about calculations */}
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-start gap-3">
+          <Shield className="w-5 h-5 text-primary mt-0.5" />
+          <div>
+            <p className="font-medium text-primary">Calculs basés sur TRUSTED uniquement</p>
+            <p className="text-sm text-muted-foreground">
+              Les événements UNTRUSTED (appareils non enrôlés) sont affichés mais exclus des calculs de paie.
+            </p>
           </div>
         </div>
 
@@ -134,13 +192,13 @@ export default function AdminEvents() {
                 <SelectItem value="trusted">
                   <span className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-success" />
-                    Vérifiés uniquement
+                    Trusted uniquement
                   </span>
                 </SelectItem>
                 <SelectItem value="untrusted">
                   <span className="flex items-center gap-2">
                     <ShieldAlert className="w-4 h-4 text-destructive" />
-                    Non vérifiés
+                    Untrusted uniquement
                   </span>
                 </SelectItem>
               </SelectContent>
@@ -234,7 +292,9 @@ export default function AdminEvents() {
                             className={TRUST_COLORS[event.trust_status as TrustStatus]}
                           >
                             <TrustIcon className="w-3 h-3 mr-1" />
-                            <span className="hidden sm:inline">{TRUST_LABELS[event.trust_status as TrustStatus]}</span>
+                            <span className="hidden sm:inline">
+                              {event.trust_status === 'trusted' ? 'Trusted' : 'Untrusted'}
+                            </span>
                           </Badge>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
@@ -296,7 +356,7 @@ export default function AdminEvents() {
                   variant="outline" 
                   className={TRUST_COLORS[selectedEvent.trust_status as TrustStatus]}
                 >
-                  {TRUST_LABELS[selectedEvent.trust_status as TrustStatus]}
+                  {selectedEvent.trust_status === 'trusted' ? 'Trusted' : 'Untrusted'}
                 </Badge>
               )}
             </DialogTitle>
@@ -322,28 +382,16 @@ export default function AdminEvents() {
                 </div>
               </div>
 
-              {/* Snapshot */}
+              {/* Snapshot with signed URL */}
               <div className="space-y-2">
                 <p className="text-sm font-medium text-center text-muted-foreground">
                   Snapshot ({format(new Date(selectedEvent.occurred_at), 'HH:mm:ss')})
                 </p>
-                <div className="aspect-square bg-muted rounded-xl flex items-center justify-center overflow-hidden">
-                  {selectedEvent.snapshot_url ? (
-                    <img 
-                      src={selectedEvent.snapshot_url} 
-                      alt="Snapshot"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="text-center text-muted-foreground">
-                      <p>Pas de snapshot</p>
-                      {selectedEvent.incident_flag && (
-                        <p className="text-destructive text-sm mt-2">
-                          {selectedEvent.incident_flag}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                <div className="aspect-square rounded-xl overflow-hidden">
+                  <SnapshotImage 
+                    snapshotUrl={selectedEvent.snapshot_url} 
+                    className="w-full h-full rounded-xl"
+                  />
                 </div>
               </div>
             </div>
@@ -365,7 +413,7 @@ export default function AdminEvents() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Trust Status</span>
                 <span className={`font-medium ${selectedEvent.trust_status === 'trusted' ? 'text-success' : 'text-destructive'}`}>
-                  {selectedEvent.trust_status === 'trusted' ? '✓ Vérifié' : '✗ Non vérifié'}
+                  {selectedEvent.trust_status === 'trusted' ? '✓ Trusted' : '✗ Untrusted'}
                 </span>
               </div>
               {selectedEvent.trust_reason && (

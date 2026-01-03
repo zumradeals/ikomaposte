@@ -15,7 +15,9 @@ import {
   User,
   Menu,
   Activity,
-  Calculator
+  Calculator,
+  Tablet,
+  Stethoscope
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -24,8 +26,6 @@ interface AdminLayoutProps {
   showBack?: boolean;
 }
 
-import { Tablet } from 'lucide-react';
-
 const navItems = [
   { path: '/admin', label: 'Tableau de bord', icon: LayoutDashboard },
   { path: '/admin/events', label: 'Flux du jour', icon: Activity },
@@ -33,6 +33,7 @@ const navItems = [
   { path: '/admin/devices', label: 'Appareils', icon: Tablet },
   { path: '/admin/categories', label: 'Catégories', icon: Tags },
   { path: '/admin/workers', label: 'Travailleurs', icon: Users },
+  { path: '/admin/diagnostic', label: 'Diagnostic', icon: Stethoscope },
 ];
 
 export function AdminLayout({ children, title, showBack = false }: AdminLayoutProps) {
