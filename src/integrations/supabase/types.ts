@@ -154,6 +154,74 @@ export type Database = {
           },
         ]
       }
+      work_summaries: {
+        Row: {
+          auto_close_time: string | null
+          auto_closed: boolean
+          calculated_at: string
+          calculation_version: string
+          created_at: string
+          devise: string
+          events_used: string[]
+          id: string
+          notes: string | null
+          segments_json: Json | null
+          taux_horaire_applied: number
+          total_amount: number
+          total_pause_minutes: number
+          total_work_minutes: number
+          updated_at: string
+          work_date: string
+          worker_id: string
+        }
+        Insert: {
+          auto_close_time?: string | null
+          auto_closed?: boolean
+          calculated_at?: string
+          calculation_version?: string
+          created_at?: string
+          devise?: string
+          events_used?: string[]
+          id?: string
+          notes?: string | null
+          segments_json?: Json | null
+          taux_horaire_applied?: number
+          total_amount?: number
+          total_pause_minutes?: number
+          total_work_minutes?: number
+          updated_at?: string
+          work_date: string
+          worker_id: string
+        }
+        Update: {
+          auto_close_time?: string | null
+          auto_closed?: boolean
+          calculated_at?: string
+          calculation_version?: string
+          created_at?: string
+          devise?: string
+          events_used?: string[]
+          id?: string
+          notes?: string | null
+          segments_json?: Json | null
+          taux_horaire_applied?: number
+          total_amount?: number
+          total_pause_minutes?: number
+          total_work_minutes?: number
+          updated_at?: string
+          work_date?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_summaries_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workers: {
         Row: {
           actif: boolean
