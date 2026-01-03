@@ -48,6 +48,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ]);
     };
 
+    // Hard stop: never keep the UI stuck in "Vérification des autorisations..."
+    const hardStop = window.setTimeout(() => {
+      setIsAdmin(false);
+      setIsLoading(false);
+    }, 6000);
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
@@ -90,7 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(hardStop);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
