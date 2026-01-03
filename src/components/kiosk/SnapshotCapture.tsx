@@ -32,18 +32,43 @@ export function SnapshotCapture({
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
+          video: {
             facingMode: 'user', // Front camera for snapshot
             width: { ideal: 640 },
-            height: { ideal: 480 }
-          }
+            height: { ideal: 480 },
+          },
         });
-        
+
         streamRef.current = stream;
-        
+
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+          const video = videoRef.current;
+          video.srcObject = stream;
+          await video.play();
+
+          // Wait until metadata is available (prevents 0x0 / black frames)
+          await new Promise<void>((resolve) => {
+            if (video.readyState >= 2 && video.videoWidth > 0) return resolve();
+
+            const onReady = () => {
+              if (video.videoWidth > 0) {
+                video.removeEventListener('loadedmetadata', onReady);
+                video.removeEventListener('canplay', onReady);
+                resolve();
+              }
+            };
+
+            video.addEventListener('loadedmetadata', onReady);
+            video.addEventListener('canplay', onReady);
+
+            // Failsafe: don't block forever
+            setTimeout(() => {
+              video.removeEventListener('loadedmetadata', onReady);
+              video.removeEventListener('canplay', onReady);
+              resolve();
+            }, 1500);
+          });
+
           setIsReady(true);
           setError(null);
           onReady();
@@ -79,6 +104,12 @@ export function SnapshotCapture({
     
     if (!video || !canvas) {
       onError('Capture impossible: éléments non prêts');
+      return;
+    }
+
+    // If metadata isn't ready yet, don't hard-fail: allow user to tap again.
+    if (!video.videoWidth || !video.videoHeight) {
+      console.warn('[Snapshot] Video not ready yet (0x0). Tap to retry.');
       return;
     }
 
@@ -149,10 +180,16 @@ export function SnapshotCapture({
     <div className="relative">
       <video 
         ref={videoRef} 
-        className="w-32 h-24 object-cover rounded-lg bg-muted"
+        className={`w-32 h-24 object-cover rounded-lg bg-muted ${trigger && isReady && !captured ? 'cursor-pointer' : ''}`}
         autoPlay 
         playsInline 
         muted
+        onClick={() => {
+          // Manual fallback: tap to capture (only when action is armed)
+          if (trigger && isReady && !captured) {
+            captureSnapshot();
+          }
+        }}
       />
       <canvas ref={canvasRef} className="hidden" />
       
@@ -177,8 +214,9 @@ export function SnapshotCapture({
       
       {/* Countdown indicator when about to capture */}
       {trigger && isReady && !captured && autoCapture && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg gap-1">
           <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          <span className="text-[10px] text-white/80">Auto-shot… (ou touchez)</span>
         </div>
       )}
     </div>

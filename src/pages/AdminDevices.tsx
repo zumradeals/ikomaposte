@@ -67,8 +67,16 @@ export default function AdminDevices() {
 
   if (!isUnlocked) return null;
 
+  const normalizeDeviceId = (value: string) => value.trim().toUpperCase();
+  const normalizeSecret = (value: string) => value.trim();
+
+  const isValidDeviceId = (value: string) => /^IKOMA-[A-Z0-9]+-[A-Z0-9]+$/.test(value);
+
   const handleEnroll = async () => {
-    if (!enrollDeviceId || !enrollDeviceSecret) {
+    const normalizedId = normalizeDeviceId(enrollDeviceId);
+    const normalizedSecret = normalizeSecret(enrollDeviceSecret);
+
+    if (!normalizedId || !normalizedSecret) {
       toast({
         title: 'Données manquantes',
         description: 'Le Device ID et le Device Secret sont requis.',
@@ -77,9 +85,18 @@ export default function AdminDevices() {
       return;
     }
 
+    if (!isValidDeviceId(normalizedId)) {
+      toast({
+        title: 'Device ID invalide',
+        description: "Le Device ID doit ressembler à 'IKOMA-XXXX-XXXX'. Copiez-le depuis l'écran borne.",
+        variant: 'destructive',
+      });
+      return;
+    }
+
     await enrollDevice.mutateAsync({
-      device_id: enrollDeviceId,
-      device_secret: enrollDeviceSecret,
+      device_id: normalizedId,
+      device_secret: normalizedSecret,
       label: enrollLabel || null,
     });
 
@@ -134,6 +151,9 @@ export default function AdminDevices() {
               <div className="flex-1">
                 <p className="font-medium text-warning">Cet appareil n'est pas enrôlé</p>
                 <p className="text-sm text-muted-foreground mt-1">
+                  Origin: <code className="bg-muted px-1 rounded text-xs">{window.location.origin}</code>
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
                   Device ID: <code className="bg-muted px-1 rounded text-xs">{currentDeviceId}</code>
                 </p>
                 <Button 
@@ -155,6 +175,9 @@ export default function AdminDevices() {
               <CheckCircle className="w-5 h-5 text-success" />
               <div>
                 <p className="font-medium text-success">Cet appareil est enrôlé</p>
+                <p className="text-sm text-muted-foreground">
+                  Origin: <code className="bg-muted px-1 rounded text-xs">{window.location.origin}</code>
+                </p>
                 <p className="text-sm text-muted-foreground">
                   Device ID: <code className="bg-muted px-1 rounded text-xs">{currentDeviceId}</code>
                 </p>
@@ -227,8 +250,17 @@ export default function AdminDevices() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell font-mono text-xs">
-                        {device.device_id.slice(0, 20)}...
+                      <TableCell className="hidden md:table-cell">
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 font-mono text-xs break-all">{device.device_id}</code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(device.device_id, 'Device ID')}
+                          >
+                            {copiedField === 'Device ID' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {device.actif ? (
