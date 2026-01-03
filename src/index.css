@@ -2,95 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* IKOMA POSTE - Industrial Kiosk Design System */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Industrial Dark Theme - Primary palette */
+    --background: 222 47% 8%;
+    --foreground: 210 40% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 96%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Industrial Blue */
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 8%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Slate Gray */
+    --secondary: 215 20% 20%;
+    --secondary-foreground: 210 40% 90%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted surfaces */
+    --muted: 215 20% 15%;
+    --muted-foreground: 215 16% 55%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Orange Accent for actions */
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Success Green */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Status colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
 
-    --sidebar-background: 0 0% 98%;
+    --border: 215 20% 18%;
+    --input: 215 20% 18%;
+    --ring: 217 91% 60%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --radius: 1rem;
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* Kiosk specific */
+    --kiosk-glow: 217 91% 60%;
+    --kiosk-scan-border: 217 91% 50%;
+    --kiosk-ready: 142 71% 45%;
+    --kiosk-waiting: 38 92% 50%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar (not used in kiosk but keeping for shadcn) */
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 222 47% 8%;
+    --sidebar-accent: 215 20% 15%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 215 20% 18%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -100,6 +75,116 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Prevent text selection in kiosk mode */
+  .kiosk-mode {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+@layer utilities {
+  /* Kiosk typography */
+  .text-kiosk-title {
+    @apply text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight;
+  }
+
+  .text-kiosk-subtitle {
+    @apply text-2xl md:text-3xl font-semibold;
+  }
+
+  .text-kiosk-body {
+    @apply text-xl md:text-2xl font-medium;
+  }
+
+  .text-kiosk-small {
+    @apply text-lg font-medium;
+  }
+
+  /* Kiosk interactive elements */
+  .kiosk-touch-zone {
+    @apply min-h-[80px] min-w-[80px] touch-manipulation;
+  }
+
+  .kiosk-button {
+    @apply px-8 py-6 text-xl font-bold rounded-2xl transition-all duration-200 active:scale-95;
+  }
+
+  /* Scan frame animation */
+  @keyframes scan-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 hsl(var(--kiosk-glow) / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 20px hsl(var(--kiosk-glow) / 0);
+    }
+  }
+
+  .animate-scan-pulse {
+    animation: scan-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes glow {
+    0%, 100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+
+  /* Corner indicators for scan frame */
+  .scan-corner {
+    @apply absolute w-12 h-12 border-4 border-primary;
+  }
+
+  .scan-corner-tl {
+    @apply top-0 left-0 border-r-0 border-b-0 rounded-tl-xl;
+  }
+
+  .scan-corner-tr {
+    @apply top-0 right-0 border-l-0 border-b-0 rounded-tr-xl;
+  }
+
+  .scan-corner-bl {
+    @apply bottom-0 left-0 border-r-0 border-t-0 rounded-bl-xl;
+  }
+
+  .scan-corner-br {
+    @apply bottom-0 right-0 border-l-0 border-t-0 rounded-br-xl;
+  }
+
+  /* Admin unlock zone (invisible) */
+  .admin-unlock-zone {
+    @apply absolute w-20 h-20 opacity-0 cursor-default;
+  }
+
+  /* PIN input styling */
+  .pin-digit {
+    @apply w-16 h-20 text-4xl font-bold text-center bg-secondary border-2 border-border rounded-xl 
+           focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-all;
+  }
+
+  /* Status indicator */
+  .status-dot {
+    @apply w-4 h-4 rounded-full;
+  }
+
+  .status-ready {
+    @apply bg-success shadow-[0_0_12px_hsl(var(--success))];
+  }
+
+  .status-waiting {
+    @apply bg-warning shadow-[0_0_12px_hsl(var(--warning))];
   }
 }
