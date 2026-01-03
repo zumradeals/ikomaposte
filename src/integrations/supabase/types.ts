@@ -44,6 +44,50 @@ export type Database = {
         }
         Relationships: []
       }
+      correction_events: {
+        Row: {
+          admin_id: string
+          anomaly_type: Database["public"]["Enums"]["anomaly_type"]
+          correction_action: Database["public"]["Enums"]["correction_action"]
+          created_at: string
+          id: string
+          justification: string
+          payload: Json | null
+          work_date: string
+          worker_id: string
+        }
+        Insert: {
+          admin_id: string
+          anomaly_type: Database["public"]["Enums"]["anomaly_type"]
+          correction_action: Database["public"]["Enums"]["correction_action"]
+          created_at?: string
+          id?: string
+          justification: string
+          payload?: Json | null
+          work_date: string
+          worker_id: string
+        }
+        Update: {
+          admin_id?: string
+          anomaly_type?: Database["public"]["Enums"]["anomaly_type"]
+          correction_action?: Database["public"]["Enums"]["correction_action"]
+          created_at?: string
+          id?: string
+          justification?: string
+          payload?: Json | null
+          work_date?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correction_events_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       devices: {
         Row: {
           actif: boolean
@@ -280,7 +324,24 @@ export type Database = {
       }
     }
     Enums: {
+      anomaly_type:
+        | "missing_end"
+        | "missing_take"
+        | "duplicate_take"
+        | "duplicate_end"
+        | "orphan_pause"
+        | "orphan_resume"
+        | "invalid_sequence"
+        | "time_overlap"
+        | "other"
       app_role: "admin" | "user"
+      correction_action:
+        | "add_virtual_event"
+        | "ignore_event"
+        | "adjust_time"
+        | "mark_absent"
+        | "mark_complete"
+        | "other"
       work_event_type: "TAKE" | "PAUSE" | "RESUME" | "END"
     }
     CompositeTypes: {
@@ -409,7 +470,26 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      anomaly_type: [
+        "missing_end",
+        "missing_take",
+        "duplicate_take",
+        "duplicate_end",
+        "orphan_pause",
+        "orphan_resume",
+        "invalid_sequence",
+        "time_overlap",
+        "other",
+      ],
       app_role: ["admin", "user"],
+      correction_action: [
+        "add_virtual_event",
+        "ignore_event",
+        "adjust_time",
+        "mark_absent",
+        "mark_complete",
+        "other",
+      ],
       work_event_type: ["TAKE", "PAUSE", "RESUME", "END"],
     },
   },

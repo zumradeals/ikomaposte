@@ -17,7 +17,8 @@ import {
   Activity,
   Calculator,
   Tablet,
-  Stethoscope
+  Stethoscope,
+  AlertTriangle
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -30,6 +31,7 @@ const navItems = [
   { path: '/admin', label: 'Tableau de bord', icon: LayoutDashboard },
   { path: '/admin/events', label: 'Flux du jour', icon: Activity },
   { path: '/admin/calculations', label: 'Calculs', icon: Calculator },
+  { path: '/admin/anomalies', label: 'Anomalies', icon: AlertTriangle },
   { path: '/admin/devices', label: 'Appareils', icon: Tablet },
   { path: '/admin/categories', label: 'Catégories', icon: Tags },
   { path: '/admin/workers', label: 'Travailleurs', icon: Users },
