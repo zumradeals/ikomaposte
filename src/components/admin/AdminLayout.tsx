@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   LogOut,
   User,
-  Menu
+  Menu,
+  Activity
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -24,6 +25,7 @@ interface AdminLayoutProps {
 
 const navItems = [
   { path: '/admin', label: 'Tableau de bord', icon: LayoutDashboard },
+  { path: '/admin/events', label: 'Flux du jour', icon: Activity },
   { path: '/admin/categories', label: 'Catégories', icon: Tags },
   { path: '/admin/workers', label: 'Travailleurs', icon: Users },
 ];

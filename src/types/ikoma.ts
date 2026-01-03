@@ -26,39 +26,12 @@ export interface AdminSession {
   expiresAt: string | null;
 }
 
-// Future placeholders (Phase 2+)
-export interface Worker {
-  id: string;
-  name: string;
-  qr_code: string;
-  category_id: string;
-  active: boolean;
-}
+// Re-export from hooks for backwards compatibility
+// Main worker/category types are now in useWorkers.ts and useCategories.ts
 
-export interface Category {
-  id: string;
-  name: string;
-  color: string;
-}
-
-export interface Shift {
-  id: string;
-  date: string;
-  status: 'open' | 'closed';
-}
-
-// Pointage events (Phase 2+)
-export type PointageEventType = 
-  | 'SHIFT_START' 
-  | 'PAUSE_START' 
-  | 'PAUSE_END' 
-  | 'SHIFT_END';
-
-export interface PointageEvent {
-  id: string;
-  timestamp: string;
-  device_id: string;
-  worker_id: string;
-  shift_id: string;
-  event_type: PointageEventType;
-}
+// Work event types moved to work-events.ts
+export type { 
+  WorkEventType, 
+  WorkEvent, 
+  WorkEventWithWorker 
+} from './work-events';
