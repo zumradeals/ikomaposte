@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { User, Clock, AlertTriangle, CheckCircle, X } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { User, Clock, AlertTriangle, CheckCircle, X, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { WorkerWithCategory } from '@/hooks/useWorkers';
 import { useAllowedActions, useCreateWorkEvent, uploadSnapshot } from '@/hooks/useWorkEvents';
@@ -7,7 +7,6 @@ import {
   WorkEventType, 
   EVENT_LABELS, 
   EVENT_ICONS, 
-  ALLOWED_TRANSITIONS 
 } from '@/types/work-events';
 import { SnapshotCapture } from './SnapshotCapture';
 import { getDeviceId } from '@/lib/storage';
@@ -29,8 +28,10 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
   const [captureSnapshot, setCaptureSnapshot] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [showPhotoFeedback, setShowPhotoFeedback] = useState(false);
   
   const pendingActionRef = useRef<WorkEventType | null>(null);
+  const processingRef = useRef(false);
 
   const handleCameraReady = useCallback(() => {
     setCameraReady(true);
@@ -42,14 +43,14 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
 
   const handleActionClick = (action: WorkEventType) => {
     // Prevent multiple clicks while processing
-    if (isProcessing) return;
+    if (isProcessing || processingRef.current) return;
 
     if (!allowedActions.includes(action)) {
       toast({
         title: 'Action non autorisée',
         description: getTransitionErrorMessage(currentState, action),
         variant: 'destructive',
-        duration: 4000, // Longer duration so user can read
+        duration: 4000,
       });
       return;
     }
@@ -75,15 +76,22 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
       return;
     }
 
+    // Set processing state immediately to prevent double-clicks
+    processingRef.current = true;
     setSelectedAction(action);
     pendingActionRef.current = action;
-    setCaptureSnapshot(true);
     setIsProcessing(true);
+    
+    // Trigger auto-capture (SnapshotCapture will auto-capture after 1s delay)
+    setCaptureSnapshot(true);
   };
 
   const handleSnapshotCapture = async (blob: Blob) => {
     const action = pendingActionRef.current;
     if (!action) return;
+
+    // Show photo feedback
+    setShowPhotoFeedback(true);
 
     try {
       const deviceId = getDeviceId();
@@ -102,8 +110,8 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
 
       toast({
         title: EVENT_LABELS[action],
-        description: `${worker.nom_affiche} - Enregistré avec succès`,
-        duration: 3000, // 3 seconds to read confirmation
+        description: `${worker.nom_affiche} - Enregistré avec succès ✓`,
+        duration: 3000,
       });
 
       // Auto-return after 2 seconds
@@ -117,24 +125,28 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
         title: 'Erreur',
         description: 'Impossible d\'enregistrer l\'action.',
         variant: 'destructive',
+        duration: 4000,
       });
       setIsProcessing(false);
       setCaptureSnapshot(false);
       setSelectedAction(null);
+      setShowPhotoFeedback(false);
+      processingRef.current = false;
     }
   };
 
   const handleSnapshotError = (error: string) => {
-    // In strict mode, block the action
     toast({
       title: 'Capture échouée',
       description: error,
       variant: 'destructive',
+      duration: 4000,
     });
     setIsProcessing(false);
     setCaptureSnapshot(false);
     setSelectedAction(null);
     pendingActionRef.current = null;
+    processingRef.current = false;
   };
 
   // Status indicator based on current state
@@ -166,11 +178,11 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
   const allActions: WorkEventType[] = ['TAKE', 'PAUSE', 'RESUME', 'END'];
 
   return (
-    <div className="bg-card rounded-3xl border-2 border-border p-6 max-w-md mx-auto">
+    <div className="bg-card rounded-3xl border-2 border-border p-6 max-w-md mx-auto relative">
       {/* Close button */}
       <button
         onClick={onCancel}
-        className="absolute top-4 right-4 p-2 rounded-full hover:bg-muted"
+        className="absolute top-4 right-4 p-2 rounded-full hover:bg-muted z-10"
         disabled={isProcessing}
       >
         <X className="w-6 h-6" />
@@ -204,8 +216,18 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
           onError={handleSnapshotError}
           trigger={captureSnapshot}
           onReady={handleCameraReady}
+          autoCapture={true}
+          autoDelay={1000}
         />
       </div>
+
+      {/* Photo feedback */}
+      {showPhotoFeedback && (
+        <div className="bg-success/10 border border-success/30 rounded-lg p-2 mb-4 flex items-center justify-center gap-2 text-success">
+          <Camera className="w-4 h-4" />
+          <span className="text-sm font-medium">Photo prise ✓</span>
+        </div>
+      )}
 
       {/* Current status */}
       <div className={`${status.bg} rounded-xl p-3 mb-6 flex items-center justify-center gap-2`}>
@@ -233,7 +255,7 @@ export function WorkerActionCard({ worker, onComplete, onCancel }: WorkerActionC
               onClick={() => handleActionClick(action)}
               disabled={!isAllowed || isProcessing}
               className={`
-                h-24 text-xl font-bold flex flex-col items-center justify-center gap-2
+                h-24 text-xl font-bold flex flex-col items-center justify-center gap-2 relative
                 ${isSelected ? 'ring-4 ring-primary' : ''}
                 ${!isAllowed ? 'opacity-40 cursor-not-allowed' : ''}
                 ${action === 'TAKE' ? 'bg-success hover:bg-success/90' : ''}
