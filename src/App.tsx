@@ -12,6 +12,7 @@ import AdminCategories from "./pages/AdminCategories";
 import AdminWorkers from "./pages/AdminWorkers";
 import AdminEvents from "./pages/AdminEvents";
 import AdminDevices from "./pages/AdminDevices";
+import AdminCalculations from "./pages/AdminCalculations";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => {
                 {/* Admin console - protected by AdminContext + AuthContext */}
                 <Route path="/admin" element={<AdminConsole />} />
                 <Route path="/admin/events" element={<AdminEvents />} />
+                <Route path="/admin/calculations" element={<AdminCalculations />} />
                 <Route path="/admin/devices" element={<AdminDevices />} />
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
