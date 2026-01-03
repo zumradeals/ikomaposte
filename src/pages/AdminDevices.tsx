@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/contexts/AdminContext';
-import { useDevices, useEnrollDevice, useUpdateDevice } from '@/hooks/useDevices';
+import { useDevices, useEnrollDevice, useUpdateDevice, checkDeviceTrust } from '@/hooks/useDevices';
 import { getDeviceId, getDeviceSecret } from '@/lib/storage';
 import { 
   Table, 
@@ -53,11 +53,41 @@ export default function AdminDevices() {
   const [enrollDeviceSecret, setEnrollDeviceSecret] = useState('');
   const [enrollLabel, setEnrollLabel] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [verifyingTrust, setVerifyingTrust] = useState(false);
 
   // Current device info
   const currentDeviceId = getDeviceId();
   const currentDeviceSecret = getDeviceSecret();
   const isCurrentDeviceEnrolled = devices?.some(d => d.device_id === currentDeviceId) ?? false;
+
+  // Re-verify device trust after enrollment
+  const verifyDeviceTrust = async () => {
+    setVerifyingTrust(true);
+    try {
+      const result = await checkDeviceTrust(currentDeviceId, currentDeviceSecret);
+      if (result.trusted) {
+        toast({
+          title: 'Appareil vérifié : TRUSTED',
+          description: `Raison: ${result.reason}`,
+        });
+      } else {
+        toast({
+          title: 'Appareil non vérifié',
+          description: `Raison: ${result.reason}`,
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('Trust verification error:', err);
+      toast({
+        title: 'Erreur de vérification',
+        description: 'Impossible de vérifier le statut de confiance',
+        variant: 'destructive',
+      });
+    } finally {
+      setVerifyingTrust(false);
+    }
+  };
 
   useEffect(() => {
     if (!isUnlocked) {
@@ -104,6 +134,14 @@ export default function AdminDevices() {
     setEnrollDeviceId('');
     setEnrollDeviceSecret('');
     setEnrollLabel('');
+
+    // Force refresh caches after enrollment
+    await refetch();
+    
+    // If this was the current device, verify trust immediately
+    if (normalizedId === currentDeviceId) {
+      setTimeout(() => verifyDeviceTrust(), 500);
+    }
   };
 
   const handleToggleActive = async (deviceId: string, currentActive: boolean) => {

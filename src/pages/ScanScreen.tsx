@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { QrCode, Wifi, WifiOff, FlaskConical, Shield, ShieldAlert, ShieldCheck, Copy, Check } from 'lucide-react';
+import { QrCode, Wifi, WifiOff, FlaskConical, Shield, ShieldAlert, ShieldCheck, Copy, Check, Wrench, AlertTriangle } from 'lucide-react';
 import { AdminUnlockModal } from '@/components/AdminUnlockModal';
 import { TestScanModal } from '@/components/TestScanModal';
 import { QRScanner } from '@/components/kiosk/QRScanner';
@@ -11,6 +11,8 @@ import { checkDeviceTrust } from '@/hooks/useDevices';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
+import { repairSession } from '@/lib/session-repair';
+import { supabase } from '@/integrations/supabase/client';
 
 type ScreenState = 'idle' | 'scanning' | 'worker-action';
 
@@ -40,7 +42,11 @@ export default function ScanScreen() {
   });
 
   // Fetch worker when QR is scanned
-  const { data: worker, isLoading: isLoadingWorker } = useWorkerByQrToken(scannedToken || undefined);
+  const { data: worker, isLoading: isLoadingWorker, isFetching: isFetchingWorker } = useWorkerByQrToken(scannedToken || undefined);
+
+  // Timeout for worker lookup
+  const [lookupTimeout, setLookupTimeout] = useState(false);
+  const lookupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Online/offline detection
   useEffect(() => {
@@ -56,9 +62,31 @@ export default function ScanScreen() {
     };
   }, []);
 
+  // Lookup timeout detection (5 seconds)
+  useEffect(() => {
+    if (scannedToken && isFetchingWorker) {
+      lookupTimeoutRef.current = setTimeout(() => {
+        setLookupTimeout(true);
+        // Log audit event
+        logAuditEvent('timeout_worker_lookup', { device_id: deviceId, token: scannedToken?.slice(0, 8) });
+      }, 5000);
+    } else {
+      if (lookupTimeoutRef.current) {
+        clearTimeout(lookupTimeoutRef.current);
+        lookupTimeoutRef.current = null;
+      }
+      setLookupTimeout(false);
+    }
+    return () => {
+      if (lookupTimeoutRef.current) {
+        clearTimeout(lookupTimeoutRef.current);
+      }
+    };
+  }, [scannedToken, isFetchingWorker, deviceId]);
+
   // Handle worker lookup result
   useEffect(() => {
-    if (scannedToken && !isLoadingWorker) {
+    if (scannedToken && !isLoadingWorker && !isFetchingWorker) {
       if (worker) {
         setCurrentWorker(worker);
         setScreenState('worker-action');
@@ -72,7 +100,17 @@ export default function ScanScreen() {
         setScreenState('scanning');
       }
     }
-  }, [worker, isLoadingWorker, scannedToken, toast]);
+  }, [worker, isLoadingWorker, isFetchingWorker, scannedToken, toast]);
+
+  // Log audit event for timeout
+  const logAuditEvent = async (eventType: string, details: Record<string, unknown>) => {
+    try {
+      console.warn(`[AUDIT] ${eventType}:`, details);
+      // Could be extended to log to a dedicated audit table
+    } catch (err) {
+      console.error('[AUDIT] Failed to log:', err);
+    }
+  };
 
   // Long press detection for admin unlock (5 seconds)
   const handlePressStart = useCallback(() => {
@@ -238,20 +276,56 @@ export default function ScanScreen() {
               />
             </div>
 
-            {isLoadingWorker && (
+            {(isLoadingWorker || isFetchingWorker) && !lookupTimeout && (
               <div className="flex items-center gap-3 text-muted-foreground">
                 <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                 <span>Recherche du travailleur...</span>
               </div>
             )}
 
-            <Button
-              variant="outline"
-              onClick={handleBackToIdle}
-              className="mt-4"
-            >
-              Annuler
-            </Button>
+            {lookupTimeout && (
+              <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 text-center space-y-3">
+                <div className="flex items-center justify-center gap-2 text-warning">
+                  <AlertTriangle className="w-5 h-5" />
+                  <span className="font-medium">Connexion instable / session à réparer</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  La recherche prend trop de temps. La connexion peut être instable ou la session corrompue.
+                </p>
+                <div className="flex justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setScannedToken(null);
+                      setLookupTimeout(false);
+                      setScreenState('idle');
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => repairSession()}
+                    className="gap-2"
+                  >
+                    <Wrench className="w-4 h-4" />
+                    Réparer session
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!lookupTimeout && (
+              <Button
+                variant="outline"
+                onClick={handleBackToIdle}
+                className="mt-4"
+              >
+                Annuler
+              </Button>
+            )}
           </>
         )}
 
