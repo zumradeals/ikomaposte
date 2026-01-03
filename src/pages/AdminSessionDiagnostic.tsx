@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Wrench, ShieldAlert, HardDrive, ArrowLeft, AlertTriangle, Copy, Check } from 'lucide-react';
+import { RefreshCw, Wrench, ShieldAlert, HardDrive, ArrowLeft, AlertTriangle, Copy, Check, Trash2 } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -243,6 +243,33 @@ export default function AdminSessionDiagnostic() {
               >
                 <Wrench className="h-4 w-4 mr-2" />
                 Réparer session (Chrome)
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  // Purge PWA cache: unregister service workers + reload
+                  try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                      await registration.unregister();
+                    }
+                    toast({
+                      title: 'Cache PWA purgé',
+                      description: 'Service workers supprimés. Rechargement...',
+                    });
+                    setTimeout(() => window.location.reload(), 1000);
+                  } catch (err) {
+                    console.error('Failed to purge PWA:', err);
+                    toast({
+                      title: 'Erreur',
+                      description: 'Impossible de purger le cache PWA',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Purger cache PWA
               </Button>
             </div>
           </CardContent>
