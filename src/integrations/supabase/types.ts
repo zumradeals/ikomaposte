@@ -65,6 +65,50 @@ export type Database = {
         }
         Relationships: []
       }
+      work_events: {
+        Row: {
+          created_at: string
+          device_id: string
+          event_type: Database["public"]["Enums"]["work_event_type"]
+          id: string
+          incident_flag: string | null
+          occurred_at: string
+          snapshot_hash: string | null
+          snapshot_url: string | null
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          event_type: Database["public"]["Enums"]["work_event_type"]
+          id?: string
+          incident_flag?: string | null
+          occurred_at?: string
+          snapshot_hash?: string | null
+          snapshot_url?: string | null
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          event_type?: Database["public"]["Enums"]["work_event_type"]
+          id?: string
+          incident_flag?: string | null
+          occurred_at?: string
+          snapshot_hash?: string | null
+          snapshot_url?: string | null
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_events_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workers: {
         Row: {
           actif: boolean
@@ -124,6 +168,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      work_event_type: "TAKE" | "PAUSE" | "RESUME" | "END"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -252,6 +297,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      work_event_type: ["TAKE", "PAUSE", "RESUME", "END"],
     },
   },
 } as const
