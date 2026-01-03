@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SwUpdateNotifier } from "@/components/SwUpdateNotifier";
 import ScanScreen from "./pages/ScanScreen";
 import AdminConsole from "./pages/AdminConsole";
 import AdminCategories from "./pages/AdminCategories";
@@ -13,16 +14,33 @@ import AdminWorkers from "./pages/AdminWorkers";
 import AdminEvents from "./pages/AdminEvents";
 import AdminDevices from "./pages/AdminDevices";
 import AdminCalculations from "./pages/AdminCalculations";
+import AdminDiagnostic from "./pages/AdminDiagnostic";
 
 const queryClient = new QueryClient();
 
-// Register service worker
+const SW_VERSION = 'v2';
+
+// Register service worker with update detection
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
           console.log('[IKOMA] SW registered:', registration.scope);
+          
+          // Check for updates periodically
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New version available
+                  console.log('[IKOMA] New SW version available');
+                  dispatchEvent(new CustomEvent('swUpdate', { detail: { version: SW_VERSION } }));
+                }
+              });
+            }
+          });
         })
         .catch((error) => {
           console.log('[IKOMA] SW registration failed:', error);
@@ -43,6 +61,7 @@ const App = () => {
           <AdminProvider>
             <Toaster />
             <Sonner />
+            <SwUpdateNotifier />
             <BrowserRouter>
               <Routes>
                 {/* Main kiosk screen - always accessible */}
@@ -55,6 +74,7 @@ const App = () => {
                 <Route path="/admin/devices" element={<AdminDevices />} />
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
+                <Route path="/admin/diagnostic" element={<AdminDiagnostic />} />
                 
                 {/* All other routes redirect to scan screen (kiosk mode) */}
                 <Route path="*" element={<Navigate to="/" replace />} />

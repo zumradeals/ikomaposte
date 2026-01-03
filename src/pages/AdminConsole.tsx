@@ -1,21 +1,25 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useCategories } from '@/hooks/useCategories';
 import { useWorkers } from '@/hooks/useWorkers';
+import { useTodayEvents } from '@/hooks/useWorkEvents';
 import { getAdminEvents, getDeviceInfo } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Monitor, Users, Tags, List, Clock } from 'lucide-react';
+import { Monitor, Users, Tags, List, Clock, Shield, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 export default function AdminConsole() {
   const navigate = useNavigate();
   const { isUnlocked } = useAdmin();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
   const events = getAdminEvents();
   const deviceInfo = getDeviceInfo();
   
   const { data: categories = [] } = useCategories(true);
   const { data: workers = [] } = useWorkers({ includeInactive: true });
+  const { data: todayEvents = [] } = useTodayEvents('all');
 
   // Protect route - redirect if not unlocked
   useEffect(() => {
@@ -42,6 +46,8 @@ export default function AdminConsole() {
 
   const activeWorkers = workers.filter(w => w.actif).length;
   const activeCategories = categories.filter(c => c.actif).length;
+  const trustedEvents = todayEvents.filter(e => e.trust_status === 'trusted').length;
+  const untrustedEvents = todayEvents.filter(e => e.trust_status === 'untrusted').length;
 
   return (
     <AdminLayout title="Tableau de bord">
@@ -92,15 +98,24 @@ export default function AdminConsole() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:border-primary transition-colors"
+            onClick={() => navigate('/admin/events')}
+          >
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-success/10">
                   <Clock className="w-6 h-6 text-success" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold">-</p>
-                  <p className="text-sm text-muted-foreground">Pointages (Phase 3)</p>
+                  <p className="text-3xl font-bold">{todayEvents.length}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Pointages aujourd'hui
+                    <span className="text-xs ml-1">
+                      ({trustedEvents} <ShieldCheck className="inline w-3 h-3 text-success" /> / 
+                       {untrustedEvents} <ShieldAlert className="inline w-3 h-3 text-destructive" />)
+                    </span>
+                  </p>
                 </div>
               </div>
             </CardContent>

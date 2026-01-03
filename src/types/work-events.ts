@@ -62,9 +62,12 @@ export const EVENT_ICONS: Record<WorkEventType, string> = {
   END: '🔴',
 };
 
+// Phase 4.5: Unified vocabulary
+// TRUSTED = device enrolled (device_id + secret validated)
+// VERIFIED = optional future human decision on photo match (not implemented yet)
 export const TRUST_LABELS: Record<TrustStatus, string> = {
-  trusted: 'Vérifié',
-  untrusted: 'Non vérifié',
+  trusted: 'Trusted',
+  untrusted: 'Untrusted',
 };
 
 export const TRUST_COLORS: Record<TrustStatus, string> = {
