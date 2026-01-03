@@ -1,16 +1,21 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Clock, Shield, List, Settings, Monitor, Users, FolderOpen, Calendar } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
+import { AdminLayout } from '@/components/admin/AdminLayout';
+import { useCategories } from '@/hooks/useCategories';
+import { useWorkers } from '@/hooks/useWorkers';
 import { getAdminEvents, getDeviceInfo } from '@/lib/storage';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Monitor, Users, Tags, List, Clock } from 'lucide-react';
 
 export default function AdminConsole() {
   const navigate = useNavigate();
-  const { isUnlocked, lock, remainingTime } = useAdmin();
+  const { isUnlocked } = useAdmin();
   const events = getAdminEvents();
   const deviceInfo = getDeviceInfo();
+  
+  const { data: categories = [] } = useCategories(true);
+  const { data: workers = [] } = useWorkers({ includeInactive: true });
 
   // Protect route - redirect if not unlocked
   useEffect(() => {
@@ -18,17 +23,6 @@ export default function AdminConsole() {
       navigate('/', { replace: true });
     }
   }, [isUnlocked, navigate]);
-
-  const handleLock = () => {
-    lock('Déconnexion manuelle');
-    navigate('/', { replace: true });
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const formatTimestamp = (iso: string) => {
     const date = new Date(iso);
@@ -46,99 +40,91 @@ export default function AdminConsole() {
     return null;
   }
 
+  const activeWorkers = workers.filter(w => w.actif).length;
+  const activeCategories = categories.filter(c => c.actif).length;
+
   return (
-    <div className="min-h-screen bg-background p-6 md:p-8">
-      {/* Header */}
-      <header className="flex items-center justify-between mb-8 pb-6 border-b border-border">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-primary/10">
-            <Shield className="w-8 h-8 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold">Admin Console</h1>
-            <p className="text-muted-foreground">IKOMA POSTE</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          {/* Session timer */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-warning/10 rounded-xl">
-            <Clock className={`w-5 h-5 ${remainingTime < 30 ? 'text-destructive' : 'text-warning'}`} />
-            <span className={`font-mono text-lg font-bold ${remainingTime < 30 ? 'text-destructive' : 'text-warning'}`}>
-              {formatTime(remainingTime)}
-            </span>
-          </div>
-          
-          {/* Lock button */}
-          <Button 
-            onClick={handleLock}
-            variant="destructive"
-            size="lg"
-            className="gap-2"
+    <AdminLayout title="Tableau de bord">
+      <div className="space-y-6">
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card 
+            className="cursor-pointer hover:border-primary transition-colors"
+            onClick={() => navigate('/admin/workers')}
           >
-            <LogOut className="w-5 h-5" />
-            Verrouiller
-          </Button>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <Users className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-3xl font-bold">{activeWorkers}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Travailleurs actifs
+                    {workers.length > activeWorkers && (
+                      <span className="text-xs ml-1">({workers.length} total)</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:border-primary transition-colors"
+            onClick={() => navigate('/admin/categories')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-accent/10">
+                  <Tags className="w-6 h-6 text-accent" />
+                </div>
+                <div>
+                  <p className="text-3xl font-bold">{activeCategories}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Catégories actives
+                    {categories.length > activeCategories && (
+                      <span className="text-xs ml-1">({categories.length} total)</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-success/10">
+                  <Clock className="w-6 h-6 text-success" />
+                </div>
+                <div>
+                  <p className="text-3xl font-bold">-</p>
+                  <p className="text-sm text-muted-foreground">Pointages (Phase 3)</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-secondary">
+                  <Monitor className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-mono truncate max-w-[150px]">
+                    {deviceInfo?.device_id?.substring(0, 12)}...
+                  </p>
+                  <p className="text-sm text-muted-foreground">ID Appareil</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Device Info */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Monitor className="w-5 h-5 text-primary" />
-              Appareil
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <p className="text-sm text-muted-foreground">ID Appareil</p>
-              <p className="font-mono text-sm">{deviceInfo?.device_id || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Créé le</p>
-              <p className="text-sm">{deviceInfo?.created_at ? formatTimestamp(deviceInfo.created_at) : 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Dernière activité</p>
-              <p className="text-sm">{deviceInfo?.last_seen ? formatTimestamp(deviceInfo.last_seen) : 'N/A'}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Phase 2+ Placeholders */}
-        <Card className="lg:col-span-2 opacity-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Modules (Phase 2+)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-muted rounded-xl text-center">
-                <Users className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Travailleurs</p>
-              </div>
-              <div className="p-4 bg-muted rounded-xl text-center">
-                <FolderOpen className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Catégories</p>
-              </div>
-              <div className="p-4 bg-muted rounded-xl text-center">
-                <Calendar className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Journées</p>
-              </div>
-              <div className="p-4 bg-muted rounded-xl text-center">
-                <List className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Pointages</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Admin Events Log */}
-        <Card className="lg:col-span-3">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <List className="w-5 h-5 text-primary" />
@@ -155,7 +141,7 @@ export default function AdminConsole() {
                 <p>Aucun événement enregistré</p>
               </div>
             ) : (
-              <div className="max-h-[400px] overflow-y-auto space-y-2">
+              <div className="max-h-[300px] overflow-y-auto space-y-2">
                 {[...events].reverse().map((event) => (
                   <div 
                     key={event.id} 
@@ -193,35 +179,35 @@ export default function AdminConsole() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* README/Documentation */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>📖 Mode d'emploi Admin</CardTitle>
-        </CardHeader>
-        <CardContent className="prose prose-invert max-w-none">
-          <div className="grid md:grid-cols-2 gap-6 text-sm">
-            <div>
-              <h4 className="font-semibold mb-2">Entrer en mode Admin</h4>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Sur l'écran Scan, appuyez longuement (5 sec) sur le coin supérieur gauche</li>
-                <li>Une modale de déverrouillage apparaît</li>
-                <li>Entrez le code PIN (défaut: 1234)</li>
-                <li>Vous accédez à la Console Admin</li>
-              </ol>
+        {/* README/Documentation */}
+        <Card>
+          <CardHeader>
+            <CardTitle>📖 Mode d'emploi Admin</CardTitle>
+          </CardHeader>
+          <CardContent className="prose prose-invert max-w-none">
+            <div className="grid md:grid-cols-2 gap-6 text-sm">
+              <div>
+                <h4 className="font-semibold mb-2">Entrer en mode Admin</h4>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li>Sur l'écran Scan, appuyez longuement (5 sec) sur le coin supérieur gauche</li>
+                  <li>Une modale de déverrouillage apparaît</li>
+                  <li>Entrez le code PIN (défaut: 1234)</li>
+                  <li>Vous accédez à la Console Admin</li>
+                </ol>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2">Sortir du mode Admin</h4>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li>Cliquez sur le bouton "Verrouiller" en haut à droite</li>
+                  <li>Ou attendez 2 minutes d'inactivité (verrouillage auto)</li>
+                  <li>L'application revient automatiquement à l'écran Scan</li>
+                </ol>
+              </div>
             </div>
-            <div>
-              <h4 className="font-semibold mb-2">Sortir du mode Admin</h4>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Cliquez sur le bouton "Verrouiller" en haut à droite</li>
-                <li>Ou attendez 2 minutes d'inactivité (verrouillage auto)</li>
-                <li>L'application revient automatiquement à l'écran Scan</li>
-              </ol>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+      </div>
+    </AdminLayout>
   );
 }

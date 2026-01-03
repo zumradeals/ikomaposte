@@ -14,7 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      categories: {
+        Row: {
+          actif: boolean
+          created_at: string
+          devise: string
+          id: string
+          nom: string
+          taux_horaire: number
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          devise?: string
+          id?: string
+          nom: string
+          taux_horaire: number
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          devise?: string
+          id?: string
+          nom?: string
+          taux_horaire?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workers: {
+        Row: {
+          actif: boolean
+          category_id: string
+          created_at: string
+          id: string
+          matricule: string
+          nom_affiche: string
+          photo_url: string | null
+          qr_token: string
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          category_id: string
+          created_at?: string
+          id?: string
+          matricule: string
+          nom_affiche: string
+          photo_url?: string | null
+          qr_token?: string
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          category_id?: string
+          created_at?: string
+          id?: string
+          matricule?: string
+          nom_affiche?: string
+          photo_url?: string | null
+          qr_token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workers_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
