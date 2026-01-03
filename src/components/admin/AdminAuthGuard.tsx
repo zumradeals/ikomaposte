@@ -92,6 +92,17 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
                 <LogOut className="w-4 h-4 mr-2" />
                 Se déconnecter
               </Button>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  window.location.href = '/admin/session';
+                }}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Diagnostic session
+              </Button>
               
               <Button 
                 variant="ghost" 

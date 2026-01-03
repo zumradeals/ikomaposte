@@ -280,8 +280,11 @@ export default function ScanScreen() {
             <ShieldAlert className="w-4 h-4 text-warning" />
           )}
           <span className="font-mono">{deviceId}</span>
+          <span className="text-[10px] md:text-xs px-2 py-0.5 rounded-full bg-muted">
+            Enrôlé: {isTrusted ? 'OUI' : 'NON'}
+          </span>
         </button>
-        
+
         <div className="flex items-center gap-2 text-muted-foreground/60">
           {isOnline ? (
             <Wifi className="w-4 h-4 md:w-5 md:h-5 text-success" />
@@ -323,6 +326,14 @@ export default function ScanScreen() {
               )}
             </div>
 
+            {/* Origin (device = navigateur + origin + storage) */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Origin</p>
+              <code className="block bg-muted px-2 py-1.5 rounded text-xs font-mono break-all">
+                {window.location.origin}
+              </code>
+            </div>
+
             {/* Device ID */}
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Device ID</p>
@@ -359,9 +370,14 @@ export default function ScanScreen() {
               </div>
             )}
 
-            {!isTrusted && trustStatus?.reason && (
+            {trustStatus?.reason && (
               <p className="text-xs text-muted-foreground">
                 Raison: {trustStatus.reason}
+                {trustStatus.reason === 'secret_mismatch' && (
+                  <span className="block mt-1">
+                    ATTENTION: ID trouvé côté admin, mais secret différent (cache effacé / autre navigateur / autre origin). Ré-enrôlez cet appareil.
+                  </span>
+                )}
               </p>
             )}
 

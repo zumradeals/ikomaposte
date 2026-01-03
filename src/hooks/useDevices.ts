@@ -63,42 +63,64 @@ export async function checkDeviceTrust(
   }
 
   try {
-    // Try to query devices - this will work if:
-    // 1. User is authenticated as admin (RLS passes)
-    // 2. We add a public RLS policy for device trust checks
+    // 1) Exact match on (device_id + device_secret)
+    // We ONLY select 'actif' so we never expose the secret in responses.
     const { data, error } = await supabase
       .from('devices')
       .select('actif')
       .eq('device_id', deviceId)
       .eq('device_secret', deviceSecret)
+      .limit(1)
       .maybeSingle();
-    
+
     if (error) {
       console.error('[Device Trust] Query error:', error);
-      // RLS might be blocking - check local cache
+      // If anything blocks the query, fallback to local cache.
       return checkLocalDeviceCache(deviceId, deviceSecret);
     }
-    
-    if (!data) {
-      // No match found - either not enrolled or RLS blocking
-      // Try local cache as fallback
-      const localResult = checkLocalDeviceCache(deviceId, deviceSecret);
-      if (localResult.trusted) {
-        return localResult;
+
+    if (data) {
+      if (!data.actif) {
+        // Device found but disabled
+        clearLocalDeviceCache(deviceId);
+        return { trusted: false, reason: 'device_disabled' };
       }
-      return { trusted: false, reason: 'unknown_device' };
+
+      // Device is enrolled and active - cache this result
+      cacheDeviceTrust(deviceId, deviceSecret);
+      return { trusted: true, reason: 'device_matched' };
     }
-    
-    if (!data.actif) {
-      // Device found but disabled
-      clearLocalDeviceCache(deviceId);
-      return { trusted: false, reason: 'device_disabled' };
+
+    // 2) No exact match.
+    // Differentiate between:
+    // - device_id not enrolled at all
+    // - device_id enrolled but secret differs (cache cleared / wrong origin / different browser storage)
+    const { data: idOnly, error: idOnlyError } = await supabase
+      .from('devices')
+      .select('actif')
+      .eq('device_id', deviceId)
+      .limit(1)
+      .maybeSingle();
+
+    if (idOnlyError) {
+      console.error('[Device Trust] device_id lookup error:', idOnlyError);
+      return checkLocalDeviceCache(deviceId, deviceSecret);
     }
-    
-    // Device is enrolled and active - cache this result
-    cacheDeviceTrust(deviceId, deviceSecret);
-    return { trusted: true, reason: 'device_matched' };
-    
+
+    if (idOnly) {
+      if (!idOnly.actif) {
+        clearLocalDeviceCache(deviceId);
+        return { trusted: false, reason: 'device_disabled' };
+      }
+      // ID exists, but secret does not match.
+      return { trusted: false, reason: 'secret_mismatch' };
+    }
+
+    // 3) No ID found server-side → try local cache, else unknown.
+    const localResult = checkLocalDeviceCache(deviceId, deviceSecret);
+    if (localResult.trusted) return localResult;
+
+    return { trusted: false, reason: 'unknown_device' };
   } catch (err) {
     console.error('[Device Trust] Error:', err);
     // Fallback to local cache

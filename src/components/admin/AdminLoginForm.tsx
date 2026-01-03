@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LogIn, UserPlus, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, AlertCircle, Loader2, Stethoscope } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ type AuthFormData = z.infer<typeof authSchema>;
 
 export function AdminLoginForm() {
   const { signIn, signUp } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
 
@@ -155,6 +157,16 @@ export function AdminLoginForm() {
                       Créer un compte
                     </>
                   )}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate('/admin/session')}
+                >
+                  <Stethoscope className="w-4 h-4 mr-2" />
+                  Diagnostic session
                 </Button>
               </form>
             </Form>

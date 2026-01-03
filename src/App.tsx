@@ -15,6 +15,7 @@ import AdminEvents from "./pages/AdminEvents";
 import AdminDevices from "./pages/AdminDevices";
 import AdminCalculations from "./pages/AdminCalculations";
 import AdminDiagnostic from "./pages/AdminDiagnostic";
+import AdminSessionDiagnostic from "./pages/AdminSessionDiagnostic";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,9 @@ const App = () => {
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
                 <Route path="/admin/diagnostic" element={<AdminDiagnostic />} />
+
+                {/* Session diagnostics (PIN only, no login required) */}
+                <Route path="/admin/session" element={<AdminSessionDiagnostic />} />
                 
                 {/* All other routes redirect to scan screen (kiosk mode) */}
                 <Route path="*" element={<Navigate to="/" replace />} />
