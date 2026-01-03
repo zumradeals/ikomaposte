@@ -22,18 +22,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAdminRole = async (userId: string): Promise<boolean> => {
     try {
-      // Use the has_role function which is security definer
-      const { data, error } = await supabase.rpc('has_role', {
-        _user_id: userId,
-        _role: 'admin'
-      });
-      
+      // Prefer direct table check (fast + predictable) with RLS: users can read their own roles
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .limit(1);
+
       if (error) {
-        console.error('Error checking admin role:', error);
+        console.error('Error checking admin role (user_roles):', error);
         return false;
       }
-      
-      return data === true;
+
+      return Array.isArray(data) && data.length > 0;
     } catch (err) {
       console.error('Error checking admin role:', err);
       return false;
