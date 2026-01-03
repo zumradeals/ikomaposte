@@ -28,8 +28,24 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 // Component for displaying snapshot with signed URL
-function SnapshotImage({ snapshotUrl, className }: { snapshotUrl: string | null; className?: string }) {
+function SnapshotImage({ 
+  snapshotUrl, 
+  className,
+  onRetry 
+}: { 
+  snapshotUrl: string | null; 
+  className?: string;
+  onRetry?: () => void;
+}) {
   const { signedUrl, isLoading, error } = useSnapshotUrl(snapshotUrl);
+  const [retryCount, setRetryCount] = useState(0);
+  const [imageError, setImageError] = useState(false);
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setImageError(false);
+    onRetry?.();
+  };
 
   if (!snapshotUrl) {
     return (
@@ -47,24 +63,27 @@ function SnapshotImage({ snapshotUrl, className }: { snapshotUrl: string | null;
     );
   }
 
-  if (error) {
+  if (error || imageError) {
     return (
-      <div className={`flex flex-col items-center justify-center bg-destructive/10 ${className}`}>
-        <AlertTriangle className="w-8 h-8 text-destructive mb-2" />
-        <p className="text-destructive text-xs text-center px-2">{error}</p>
+      <div className={`flex flex-col items-center justify-center bg-destructive/10 gap-2 ${className}`}>
+        <AlertTriangle className="w-8 h-8 text-destructive" />
+        <p className="text-destructive text-xs text-center px-2">{error || 'Erreur de chargement'}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry} className="mt-2">
+          <RefreshCw className="w-3 h-3 mr-1" />
+          Retenter
+        </Button>
+        <p className="text-xs text-muted-foreground">Chemin: {snapshotUrl.slice(0, 30)}...</p>
       </div>
     );
   }
 
   return (
     <img 
+      key={retryCount}
       src={signedUrl || ''} 
       alt="Snapshot"
       className={`object-cover ${className}`}
-      onError={(e) => {
-        const target = e.target as HTMLImageElement;
-        target.style.display = 'none';
-      }}
+      onError={() => setImageError(true)}
     />
   );
 }

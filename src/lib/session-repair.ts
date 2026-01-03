@@ -5,7 +5,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-const PRESERVE_KEYS = ['ikoma_device_id', 'ikoma_device_secret'];
+const PRESERVE_KEYS = ['ikoma_device_id', 'ikoma_device_secret', 'ikoma_device_trust_cache'];
 
 /**
  * Perform a hard session reset: sign out, clear storage (except device keys), reload
@@ -14,36 +14,51 @@ export async function repairSession(): Promise<void> {
   console.log('[IKOMA] Starting session repair...');
   
   try {
-    // 1. Sign out from Supabase
+    // 1. Sign out from Supabase (both local and global)
     await supabase.auth.signOut({ scope: 'local' });
     console.log('[IKOMA] Signed out');
   } catch (err) {
     console.warn('[IKOMA] Sign out error (continuing):', err);
   }
 
-  // 2. Preserve device keys
-  const preserved: Record<string, string | null> = {};
-  PRESERVE_KEYS.forEach(key => {
-    preserved[key] = localStorage.getItem(key);
-  });
-
-  // 3. Clear all localStorage
-  localStorage.clear();
-
-  // 4. Restore preserved keys
-  PRESERVE_KEYS.forEach(key => {
-    if (preserved[key]) {
-      localStorage.setItem(key, preserved[key]!);
+  // 2. Clear all Supabase-related keys from localStorage
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key) {
+      // Remove all keys starting with 'sb-' (Supabase auth tokens)
+      if (key.startsWith('sb-') || key.includes('supabase')) {
+        keysToRemove.push(key);
+      }
+      // Remove all other keys except preserve list
+      else if (!PRESERVE_KEYS.includes(key)) {
+        keysToRemove.push(key);
+      }
     }
+  }
+  
+  keysToRemove.forEach(key => {
+    localStorage.removeItem(key);
+    console.log(`[IKOMA] Removed: ${key}`);
   });
 
-  console.log('[IKOMA] Storage cleared (device keys preserved)');
-
-  // 5. Clear sessionStorage
+  // 3. Clear sessionStorage completely
   sessionStorage.clear();
+  console.log('[IKOMA] Session storage cleared');
 
-  // 6. Reload the page
-  window.location.reload();
+  // 4. Unregister service workers
+  if ('serviceWorker' in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister()));
+      console.log('[IKOMA] Service workers unregistered:', registrations.length);
+    } catch (err) {
+      console.warn('[IKOMA] SW unregister error:', err);
+    }
+  }
+
+  // 5. Hard reload (bypass cache)
+  window.location.href = window.location.origin + '/';
 }
 
 /**

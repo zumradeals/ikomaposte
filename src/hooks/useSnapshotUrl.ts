@@ -16,27 +16,42 @@ interface UseSnapshotUrlResult {
  * Extract the storage path from a signed URL or return the path as-is
  */
 function extractPathFromUrl(snapshotUrl: string, bucketName: string): string {
-  // If it's already just a path, return it
+  // If it's already just a path (no http), return it
   if (!snapshotUrl.startsWith('http://') && !snapshotUrl.startsWith('https://')) {
     return snapshotUrl;
   }
 
-  // Try to extract path from signed URL pattern:
-  // .../storage/v1/object/sign/bucket-name/path?token=...
-  const signedPattern = new RegExp(`/storage/v1/object/sign/${bucketName}/(.+?)\\?`);
-  const signedMatch = snapshotUrl.match(signedPattern);
-  if (signedMatch?.[1]) {
-    return decodeURIComponent(signedMatch[1]);
+  try {
+    const url = new URL(snapshotUrl);
+    const pathname = url.pathname;
+
+    // Try to extract path from signed URL pattern:
+    // .../storage/v1/object/sign/bucket-name/path
+    const signedPattern = new RegExp(`/storage/v1/object/sign/${bucketName}/(.+)`);
+    const signedMatch = pathname.match(signedPattern);
+    if (signedMatch?.[1]) {
+      return decodeURIComponent(signedMatch[1]);
+    }
+
+    // Try public URL pattern: .../storage/v1/object/public/bucket-name/path
+    const publicPattern = new RegExp(`/storage/v1/object/public/${bucketName}/(.+)`);
+    const publicMatch = pathname.match(publicPattern);
+    if (publicMatch?.[1]) {
+      return decodeURIComponent(publicMatch[1]);
+    }
+
+    // Try authenticated URL pattern: .../storage/v1/object/authenticated/bucket-name/path
+    const authPattern = new RegExp(`/storage/v1/object/authenticated/${bucketName}/(.+)`);
+    const authMatch = pathname.match(authPattern);
+    if (authMatch?.[1]) {
+      return decodeURIComponent(authMatch[1]);
+    }
+
+  } catch (e) {
+    console.error('[Snapshot URL] Failed to parse URL:', e);
   }
 
-  // Try public URL pattern: .../storage/v1/object/public/bucket-name/path
-  const publicPattern = new RegExp(`/storage/v1/object/public/${bucketName}/(.+)`);
-  const publicMatch = snapshotUrl.match(publicPattern);
-  if (publicMatch?.[1]) {
-    return decodeURIComponent(publicMatch[1].split('?')[0]);
-  }
-
-  // Couldn't extract, return original
+  // Couldn't extract, return original (might be a path already)
   return snapshotUrl;
 }
 
