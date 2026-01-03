@@ -5,9 +5,11 @@ import {
   WorkEvent, 
   WorkEventWithWorker, 
   WorkEventType, 
+  TrustStatus,
   ALLOWED_TRANSITIONS 
 } from '@/types/work-events';
-import { getDeviceId } from '@/lib/storage';
+import { getDeviceId, getDeviceSecret } from '@/lib/storage';
+import { checkDeviceTrust } from './useDevices';
 
 interface WorkEventInsert {
   worker_id: string;
@@ -85,14 +87,14 @@ export function useWorkerDayEvents(workerId: string | undefined) {
 }
 
 // Get all events for today (admin view)
-export function useTodayEvents() {
+export function useTodayEvents(trustFilter?: TrustStatus | 'all') {
   return useQuery({
-    queryKey: ['today-events'],
+    queryKey: ['today-events', trustFilter],
     queryFn: async () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('work_events')
         .select(`
           *,
@@ -110,6 +112,13 @@ export function useTodayEvents() {
         .gte('occurred_at', today.toISOString())
         .order('occurred_at', { ascending: false });
       
+      // Apply trust filter if specified
+      if (trustFilter && trustFilter !== 'all') {
+        query = query.eq('trust_status', trustFilter);
+      }
+      
+      const { data, error } = await query;
+      
       if (error) throw error;
       return data as WorkEventWithWorker[];
     },
@@ -118,11 +127,11 @@ export function useTodayEvents() {
 }
 
 // Get events for a specific date range (for export)
-export function useDateRangeEvents(startDate: Date, endDate: Date) {
+export function useDateRangeEvents(startDate: Date, endDate: Date, trustFilter?: TrustStatus | 'all') {
   return useQuery({
-    queryKey: ['events-range', startDate.toISOString(), endDate.toISOString()],
+    queryKey: ['events-range', startDate.toISOString(), endDate.toISOString(), trustFilter],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('work_events')
         .select(`
           *,
@@ -141,6 +150,12 @@ export function useDateRangeEvents(startDate: Date, endDate: Date) {
         .lte('occurred_at', endDate.toISOString())
         .order('occurred_at', { ascending: true });
       
+      if (trustFilter && trustFilter !== 'all') {
+        query = query.eq('trust_status', trustFilter);
+      }
+      
+      const { data, error } = await query;
+      
       if (error) throw error;
       return data as WorkEventWithWorker[];
     },
@@ -148,7 +163,7 @@ export function useDateRangeEvents(startDate: Date, endDate: Date) {
   });
 }
 
-// Create a new work event
+// Create a new work event with trust validation
 export function useCreateWorkEvent() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -156,6 +171,11 @@ export function useCreateWorkEvent() {
   return useMutation({
     mutationFn: async (event: WorkEventInsert) => {
       const deviceId = getDeviceId();
+      const deviceSecret = getDeviceSecret();
+      const clientOccurredAt = new Date().toISOString();
+      
+      // Check device trust
+      const trustResult = await checkDeviceTrust(deviceId, deviceSecret);
       
       const { data, error } = await supabase
         .from('work_events')
@@ -163,9 +183,13 @@ export function useCreateWorkEvent() {
           worker_id: event.worker_id,
           event_type: event.event_type,
           device_id: deviceId,
+          device_secret: deviceSecret,
           snapshot_url: event.snapshot_url,
           snapshot_hash: event.snapshot_hash,
           incident_flag: event.incident_flag,
+          trust_status: trustResult.trusted ? 'trusted' : 'untrusted',
+          trust_reason: trustResult.reason,
+          client_occurred_at: clientOccurredAt,
         })
         .select()
         .single();

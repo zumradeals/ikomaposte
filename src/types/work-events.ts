@@ -1,6 +1,7 @@
 // Phase 3: Work Events Types
 
 export type WorkEventType = 'TAKE' | 'PAUSE' | 'RESUME' | 'END';
+export type TrustStatus = 'trusted' | 'untrusted';
 
 export interface WorkEvent {
   id: string;
@@ -8,9 +9,13 @@ export interface WorkEvent {
   event_type: WorkEventType;
   occurred_at: string;
   device_id: string;
+  device_secret: string | null;
   snapshot_url: string | null;
   snapshot_hash: string | null;
   incident_flag: string | null;
+  trust_status: TrustStatus;
+  trust_reason: string | null;
+  client_occurred_at: string | null;
   created_at: string;
 }
 
@@ -55,4 +60,14 @@ export const EVENT_ICONS: Record<WorkEventType, string> = {
   PAUSE: '🟡',
   RESUME: '🔵',
   END: '🔴',
+};
+
+export const TRUST_LABELS: Record<TrustStatus, string> = {
+  trusted: 'Vérifié',
+  untrusted: 'Non vérifié',
+};
+
+export const TRUST_COLORS: Record<TrustStatus, string> = {
+  trusted: 'bg-success/20 text-success border-success/30',
+  untrusted: 'bg-destructive/20 text-destructive border-destructive/30',
 };

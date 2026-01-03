@@ -1,14 +1,16 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { QrCode, Wifi, WifiOff, FlaskConical, Camera, CameraOff } from 'lucide-react';
+import { QrCode, Wifi, WifiOff, FlaskConical, Shield, ShieldAlert, ShieldCheck, Copy, Check } from 'lucide-react';
 import { AdminUnlockModal } from '@/components/AdminUnlockModal';
 import { TestScanModal } from '@/components/TestScanModal';
 import { QRScanner } from '@/components/kiosk/QRScanner';
 import { WorkerActionCard } from '@/components/kiosk/WorkerActionCard';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useWorkerByQrToken, WorkerWithCategory } from '@/hooks/useWorkers';
-import { getDeviceId } from '@/lib/storage';
+import { getDeviceId, getDeviceSecret } from '@/lib/storage';
+import { checkDeviceTrust } from '@/hooks/useDevices';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
 
 type ScreenState = 'idle' | 'scanning' | 'worker-action';
 
@@ -19,6 +21,8 @@ export default function ScanScreen() {
   const [screenState, setScreenState] = useState<ScreenState>('idle');
   const [scannedToken, setScannedToken] = useState<string | null>(null);
   const [currentWorker, setCurrentWorker] = useState<WorkerWithCategory | null>(null);
+  const [showDeviceInfo, setShowDeviceInfo] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isPressed, setIsPressed] = useState(false);
@@ -26,6 +30,14 @@ export default function ScanScreen() {
   const { toast } = useToast();
 
   const deviceId = getDeviceId();
+  const deviceSecret = getDeviceSecret();
+
+  // Check device trust status
+  const { data: trustStatus } = useQuery({
+    queryKey: ['device-trust', deviceId, deviceSecret],
+    queryFn: () => checkDeviceTrust(deviceId, deviceSecret),
+    refetchInterval: 30000, // Check every 30 seconds
+  });
 
   // Fetch worker when QR is scanned
   const { data: worker, isLoading: isLoadingWorker } = useWorkerByQrToken(scannedToken || undefined);
@@ -108,6 +120,19 @@ export default function ScanScreen() {
     setShowTestScan(false);
     setScannedToken(token);
   };
+
+  // Copy to clipboard
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    toast({
+      title: 'Copié',
+      description: `${field} copié dans le presse-papiers`,
+    });
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const isTrusted = trustStatus?.trusted === true;
 
   return (
     <div className="kiosk-mode min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
@@ -244,9 +269,18 @@ export default function ScanScreen() {
 
       {/* Footer - device info & status */}
       <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground/60">
+        {/* Device ID & Trust Status - clickable to show enrollment info */}
+        <button
+          onClick={() => setShowDeviceInfo(!showDeviceInfo)}
+          className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+        >
+          {isTrusted ? (
+            <ShieldCheck className="w-4 h-4 text-success" />
+          ) : (
+            <ShieldAlert className="w-4 h-4 text-warning" />
+          )}
           <span className="font-mono">{deviceId}</span>
-        </div>
+        </button>
         
         <div className="flex items-center gap-2 text-muted-foreground/60">
           {isOnline ? (
@@ -256,6 +290,89 @@ export default function ScanScreen() {
           )}
         </div>
       </div>
+
+      {/* Device info panel - for enrollment */}
+      {showDeviceInfo && (
+        <div className="absolute bottom-20 left-4 right-4 md:left-auto md:right-auto md:w-96 bg-card border border-border rounded-xl p-4 shadow-lg z-50">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              <h3 className="font-medium">Informations Appareil</h3>
+            </div>
+            <button
+              onClick={() => setShowDeviceInfo(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="space-y-3 text-sm">
+            {/* Trust status */}
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isTrusted ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+              {isTrusted ? (
+                <>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Appareil vérifié</span>
+                </>
+              ) : (
+                <>
+                  <ShieldAlert className="w-4 h-4" />
+                  <span>Appareil non enrôlé</span>
+                </>
+              )}
+            </div>
+
+            {/* Device ID */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Device ID</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-muted px-2 py-1.5 rounded text-xs font-mono break-all">
+                  {deviceId}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(deviceId, 'Device ID')}
+                >
+                  {copiedField === 'Device ID' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Device Secret - only show if not enrolled */}
+            {!isTrusted && (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Device Secret (pour enrôlement)</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-muted px-2 py-1.5 rounded text-xs font-mono break-all">
+                    {deviceSecret.slice(0, 16)}...{deviceSecret.slice(-8)}
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(deviceSecret, 'Device Secret')}
+                  >
+                    {copiedField === 'Device Secret' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!isTrusted && trustStatus?.reason && (
+              <p className="text-xs text-muted-foreground">
+                Raison: {trustStatus.reason}
+              </p>
+            )}
+
+            {!isTrusted && (
+              <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
+                Pour enrôler cet appareil, connectez-vous à l'admin et allez dans "Appareils".
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Admin unlock modal */}
       <AdminUnlockModal 

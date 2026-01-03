@@ -44,6 +44,39 @@ export type Database = {
         }
         Relationships: []
       }
+      devices: {
+        Row: {
+          actif: boolean
+          created_at: string
+          device_id: string
+          device_secret: string
+          id: string
+          label: string | null
+          site_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          device_id: string
+          device_secret: string
+          id?: string
+          label?: string | null
+          site_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          device_id?: string
+          device_secret?: string
+          id?: string
+          label?: string | null
+          site_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -67,36 +100,48 @@ export type Database = {
       }
       work_events: {
         Row: {
+          client_occurred_at: string | null
           created_at: string
           device_id: string
+          device_secret: string | null
           event_type: Database["public"]["Enums"]["work_event_type"]
           id: string
           incident_flag: string | null
           occurred_at: string
           snapshot_hash: string | null
           snapshot_url: string | null
+          trust_reason: string | null
+          trust_status: string
           worker_id: string
         }
         Insert: {
+          client_occurred_at?: string | null
           created_at?: string
           device_id: string
+          device_secret?: string | null
           event_type: Database["public"]["Enums"]["work_event_type"]
           id?: string
           incident_flag?: string | null
           occurred_at?: string
           snapshot_hash?: string | null
           snapshot_url?: string | null
+          trust_reason?: string | null
+          trust_status?: string
           worker_id: string
         }
         Update: {
+          client_occurred_at?: string | null
           created_at?: string
           device_id?: string
+          device_secret?: string | null
           event_type?: Database["public"]["Enums"]["work_event_type"]
           id?: string
           incident_flag?: string | null
           occurred_at?: string
           snapshot_hash?: string | null
           snapshot_url?: string | null
+          trust_reason?: string | null
+          trust_status?: string
           worker_id?: string
         }
         Relationships: [

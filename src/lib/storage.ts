@@ -1,6 +1,7 @@
 import { DeviceInfo, AdminEvent } from '@/types/ikoma';
 
 const DEVICE_ID_KEY = 'ikoma_device_id';
+const DEVICE_SECRET_KEY = 'ikoma_device_secret';
 const ADMIN_EVENTS_KEY = 'ikoma_admin_events';
 
 // Generate a unique device ID
@@ -8,6 +9,14 @@ function generateDeviceId(): string {
   const timestamp = Date.now().toString(36);
   const randomPart = Math.random().toString(36).substring(2, 10);
   return `IKOMA-${timestamp}-${randomPart}`.toUpperCase();
+}
+
+// Generate a secure device secret (UUID-like)
+function generateDeviceSecret(): string {
+  const crypto = window.crypto;
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 // Get or create device ID (persistent)
@@ -45,6 +54,19 @@ export function getDeviceId(): string {
   } catch {
     return generateDeviceId();
   }
+}
+
+// Get or create device secret (persistent, used for trust validation)
+export function getDeviceSecret(): string {
+  let stored = localStorage.getItem(DEVICE_SECRET_KEY);
+  
+  if (!stored) {
+    stored = generateDeviceSecret();
+    localStorage.setItem(DEVICE_SECRET_KEY, stored);
+    console.log('[IKOMA] New device secret generated');
+  }
+  
+  return stored;
 }
 
 // Get device info
