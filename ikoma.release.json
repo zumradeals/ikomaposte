@@ -5,7 +5,7 @@
   "type": "docker-compose",
   "service": "web",
   "port": 80,
-  "healthcheck": "/",
+  "healthcheck": "/health",
   "supabase": {
     "enabled": true
   },
