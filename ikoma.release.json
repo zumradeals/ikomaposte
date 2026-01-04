@@ -1,0 +1,18 @@
+{
+  "app_slug": "ikomaposte",
+  "git_url": "https://github.com/zumradeals/ikomaposte.git",
+  "ref": "main",
+  "type": "docker-compose",
+  "service": "web",
+  "port": 80,
+  "healthcheck": "/",
+  "supabase": {
+    "enabled": true
+  },
+  "env": {
+    "required": [
+      "VITE_SUPABASE_URL",
+      "VITE_SUPABASE_PUBLISHABLE_KEY"
+    ]
+  }
+}
