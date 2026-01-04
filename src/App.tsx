@@ -17,6 +17,7 @@ import AdminCalculations from "./pages/AdminCalculations";
 import AdminDiagnostic from "./pages/AdminDiagnostic";
 import AdminSessionDiagnostic from "./pages/AdminSessionDiagnostic";
 import AdminAnomalies from "./pages/AdminAnomalies";
+import AdminExports from "./pages/AdminExports";
 
 const queryClient = new QueryClient();
 
@@ -73,11 +74,12 @@ const App = () => {
                 <Route path="/admin" element={<AdminConsole />} />
                 <Route path="/admin/events" element={<AdminEvents />} />
                 <Route path="/admin/calculations" element={<AdminCalculations />} />
+                <Route path="/admin/anomalies" element={<AdminAnomalies />} />
+                <Route path="/admin/exports" element={<AdminExports />} />
                 <Route path="/admin/devices" element={<AdminDevices />} />
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
                 <Route path="/admin/diagnostic" element={<AdminDiagnostic />} />
-                <Route path="/admin/anomalies" element={<AdminAnomalies />} />
 
                 {/* Session diagnostics (PIN only, no login required) */}
                 <Route path="/admin/session" element={<AdminSessionDiagnostic />} />
