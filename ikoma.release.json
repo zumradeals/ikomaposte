@@ -1,5 +1,9 @@
 {
+  "ikoma": {
+    "contract_version": "1.0"
+  },
   "app_slug": "ikomaposte",
+  "domain": "ikomaposte.local",
   "git_url": "https://github.com/zumradeals/ikomaposte.git",
   "ref": "main",
   "type": "docker-compose",
