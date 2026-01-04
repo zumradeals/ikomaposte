@@ -85,10 +85,10 @@ export function AdminLayout({ children, title, showBack = false }: AdminLayoutPr
         <header className="bg-card border-b border-border px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 md:gap-4">
-              {/* Mobile menu button */}
+              {/* Menu button - always visible for touch devices */}
               <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
+                  <Button variant="ghost" size="icon" className="lg:hidden">
                     <Menu className="h-6 w-6" />
                   </Button>
                 </SheetTrigger>
@@ -193,7 +193,7 @@ export function AdminLayout({ children, title, showBack = false }: AdminLayoutPr
 
         <div className="flex flex-1">
           {/* Desktop Sidebar */}
-          <aside className="hidden md:block w-64 bg-card border-r border-border p-4">
+          <aside className="hidden lg:block w-64 bg-card border-r border-border p-4">
             <NavContent />
           </aside>
 
