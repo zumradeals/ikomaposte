@@ -3,13 +3,13 @@
     "contract_version": "1.0"
   },
   "app_slug": "ikomaposte",
-  "domain": "ikomaposte.local",
+  "domain": "poste.ikomadigit.com",
   "git_url": "https://github.com/zumradeals/ikomaposte.git",
   "ref": "main",
   "type": "docker-compose",
   "service": "web",
   "port": 80,
-  "healthcheck": "/health",
+  "healthcheck": "/",
   "supabase": {
     "enabled": true
   },
