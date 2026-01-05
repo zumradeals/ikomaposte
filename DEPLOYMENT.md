@@ -248,12 +248,65 @@ ikomaposte/
 ├── docker-compose.yml    # Orchestration conteneurs
 ├── server.js             # Serveur Node.js production
 ├── scripts/
-│   └── migrate.sh        # Script migrations SQL
+│   ├── migrate.sh        # Script migrations SQL
+│   ├── backup.sh         # Backup complet (DB + Storage)
+│   └── seed.sql          # Données de test (DEV only)
+├── backups/              # Dossier créé par backup.sh
 ├── supabase/
 │   └── migrations/       # Fichiers SQL versionnés
 ├── src/                  # Code source React/TypeScript
 └── DEPLOYMENT.md         # Ce guide
 ```
+
+---
+
+## 🗄️ Backup & Restauration
+
+### Créer un backup complet
+
+```bash
+chmod +x scripts/backup.sh
+./scripts/backup.sh
+```
+
+Le script crée un dossier `backups/ikomaposte/<timestamp>/` contenant :
+- `database.sql.gz` - Dump PostgreSQL compressé (schéma + données)
+- `storage/` - Métadonnées des fichiers par bucket
+- `manifest.json` - Infos du backup (date, commit git, version)
+
+### Restaurer sur un autre VPS
+
+```bash
+# 1. Copier le dossier backup sur le nouveau serveur
+scp -r backups/ikomaposte/20250105_120000/ user@new-server:~/
+
+# 2. Sur le nouveau serveur, après avoir configuré Supabase
+cd ~/20250105_120000
+gunzip -c database.sql.gz | psql $SUPABASE_DB_URL
+
+# 3. Restaurer les fichiers Storage depuis le volume Docker
+# (copier le contenu du volume 'supabase_storage_data')
+```
+
+---
+
+## 🧪 Données de Test (DEV)
+
+Pour initialiser l'environnement de développement avec des données de test :
+
+```bash
+# Après les migrations
+psql $SUPABASE_DB_URL -f scripts/seed.sql
+```
+
+⚠️ **NE PAS utiliser en production** - Le script refuse de s'exécuter si des données existent déjà.
+
+Données créées :
+- 4 catégories (Opérateur, Technicien, Superviseur, Stagiaire)
+- 8 travailleurs avec QR tokens
+- 5 kiosques/appareils
+- Événements de travail sur 3 jours
+- Résumés de travail calculés
 
 ---
 
