@@ -251,9 +251,14 @@ ikomaposte/
 │   ├── migrate.sh        # Script migrations SQL
 │   ├── backup.sh         # Backup complet (DB + Storage)
 │   └── seed.sql          # Données de test (DEV only)
+├── migrations/           # Fichiers SQL versionnés pour self-host
+│   ├── 0001_enums.sql    # Types enum (app_role, work_event_type, etc.)
+│   ├── 0002_tables.sql   # Tables avec indexes
+│   ├── 0003_functions.sql # Fonctions SQL (has_role, updated_at)
+│   ├── 0004_triggers.sql # Triggers auto-update
+│   ├── 0005_rls.sql      # Politiques Row Level Security
+│   └── 0006_storage.sql  # Buckets Storage + policies
 ├── backups/              # Dossier créé par backup.sh
-├── supabase/
-│   └── migrations/       # Fichiers SQL versionnés
 ├── src/                  # Code source React/TypeScript
 └── DEPLOYMENT.md         # Ce guide
 ```
