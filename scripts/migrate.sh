@@ -39,13 +39,20 @@ if ! psql "$SUPABASE_DB_URL" -c "SELECT 1" > /dev/null 2>&1; then
 fi
 log_info "Connexion PostgreSQL OK"
 
-# Répertoire des migrations
-MIGRATIONS_DIR="supabase/migrations"
+# Répertoire des migrations (migrations/ à la racine pour self-hosting)
+MIGRATIONS_DIR="migrations"
+
+# Fallback vers supabase/migrations si migrations/ n'existe pas
+if [ ! -d "$MIGRATIONS_DIR" ]; then
+    MIGRATIONS_DIR="supabase/migrations"
+fi
 
 if [ ! -d "$MIGRATIONS_DIR" ]; then
-    log_warn "Aucun répertoire de migrations trouvé: $MIGRATIONS_DIR"
+    log_warn "Aucun répertoire de migrations trouvé: migrations/ ou supabase/migrations/"
     exit 0
 fi
+
+log_info "Utilisation du répertoire: $MIGRATIONS_DIR"
 
 # Créer la table de suivi des migrations si elle n'existe pas
 log_info "Initialisation de la table de suivi des migrations..."
