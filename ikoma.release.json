@@ -7,9 +7,13 @@
   "git_url": "https://github.com/zumradeals/ikomaposte.git",
   "ref": "main",
   "type": "docker-compose",
-  "service": "web",
+  "services": [
+    "web"
+  ],
   "port": 80,
-  "healthcheck": "/",
+  "health": {
+    "url": "/"
+  },
   "supabase": {
     "enabled": true
   },

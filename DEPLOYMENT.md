@@ -158,6 +158,15 @@ curl http://localhost:80/health
 
 Réponse attendue : HTML de l'application ou JSON `{"status":"ok"}`
 
+### Champ `health.url` (ikoma.release.json)
+
+Le runner IKOMA attend un objet `health` avec une clé `url` non vide dans `ikoma.release.json`.
+Exemple minimal :
+
+```json
+"health": { "url": "/" }
+```
+
 ---
 
 ## 8️⃣ Reverse Proxy (Caddy)
