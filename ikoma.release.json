@@ -11,9 +11,7 @@
     "web"
   ],
   "port": 80,
-  "health": {
-    "url": "/"
-  },
+  "health": { "url": "/" },
   "supabase": {
     "enabled": true
   },
