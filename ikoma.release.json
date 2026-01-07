@@ -12,7 +12,7 @@
   ],
   "port": 80,
   "health": {
-    "path": "/"
+    "url": "/"
   },
   "supabase": {
     "enabled": true
