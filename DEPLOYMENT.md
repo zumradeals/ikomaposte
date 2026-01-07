@@ -160,7 +160,7 @@ Réponse attendue : HTML de l'application ou JSON `{"status":"ok"}`
 
 ### Champ `health.url` (ikoma.release.json)
 
-Le runner IKOMA attend un objet `health` avec une clé `url` non vide dans `ikoma.release.json`.
+Le runner IKOMA attend un objet `health` avec une clé `url` non vide dans `ikoma.release.json` (sinon le validateur échoue).
 Exemple minimal :
 
 ```json
