@@ -1,13 +1,14 @@
--- =============================================
--- IKOMA POSTE - Migration 0002: Tables
--- =============================================
--- Creates all application tables with constraints and indexes
+-- Migration: 00002_tables.sql
+-- Description: Creates all application tables with constraints and indexes
+-- Author: IKOMA Generator
+-- Date: 2025-01-10
+-- IKOMA Supabase Bundle Standard v1.0
 
--- ---------------------------------------------
--- Table: categories
+-- ============================================
+-- TABLE: categories
 -- Worker categories with hourly rates
--- ---------------------------------------------
-CREATE TABLE public.categories (
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.categories (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   nom TEXT NOT NULL,
   devise TEXT NOT NULL DEFAULT 'XOF',
@@ -17,8 +18,7 @@ CREATE TABLE public.categories (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
--- Index for active categories lookup
-CREATE INDEX idx_categories_actif ON public.categories(actif);
+CREATE INDEX IF NOT EXISTS idx_categories_actif ON public.categories(actif);
 
 -- ---------------------------------------------
 -- Table: user_roles
