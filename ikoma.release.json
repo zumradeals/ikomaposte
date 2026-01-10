@@ -1,6 +1,7 @@
 {
   "ikoma": {
-    "contract_version": "1.0"
+    "schema_version": "1.0",
+    "profile": "node_server"
   },
   "app_slug": "ikomaposte",
   "domain": "poste.ikomadigit.com",
@@ -8,14 +9,16 @@
   "ref": "main",
   "type": "docker-compose",
   "services": [
-    "web"
+    "app"
   ],
-  "port": 80,
+  "port": 3000,
   "health": {
-    "url": "/"
+    "path": "/health",
+    "expected_status": 200
   },
   "supabase": {
-    "enabled": true
+    "enabled": true,
+    "mode": "self-host"
   },
   "env": {
     "required": [
