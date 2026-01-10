@@ -1,0 +1,25 @@
+{
+  "ikoma": {
+    "schema_version": "1.0",
+    "profile": "node_server",
+    "playbook": "docker-compose",
+    "compose_file": "docker-compose.yml",
+    "service": "app",
+    "internal_port": 3000,
+    "health": {
+      "path": "/health",
+      "expected_status": 200
+    },
+    "publish": {
+      "enabled": true,
+      "proxy_engine": "caddy",
+      "tls_mode": "auto"
+    },
+    "platforms": {
+      "supabase": {
+        "required": true,
+        "mode": "self-host"
+      }
+    }
+  }
+}

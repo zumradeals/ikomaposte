@@ -2,7 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 3000;
+// Port configurable via env
+const PORT = parseInt(process.env.PORT, 10) || 3000;
 const DIST_DIR = path.join(__dirname, 'dist');
 
 // Read version from package.json
@@ -36,10 +37,14 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
 
-  // Health endpoint
+  // Health endpoint OBLIGATOIRE IKOMA
   if (pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, version, timestamp: new Date().toISOString() }));
+    res.end(JSON.stringify({ 
+      status: 'ok', 
+      version, 
+      timestamp: new Date().toISOString() 
+    }));
     return;
   }
 
@@ -80,14 +85,19 @@ const server = http.createServer((req, res) => {
       ? 'no-cache' 
       : 'public, max-age=31536000, immutable';
 
+    // Headers sécurité
     res.writeHead(200, {
       'Content-Type': contentType,
-      'Cache-Control': cacheControl
+      'Cache-Control': cacheControl,
+      'X-Frame-Options': 'SAMEORIGIN',
+      'X-Content-Type-Options': 'nosniff',
+      'X-XSS-Protection': '1; mode=block'
     });
     res.end(content);
   });
 });
 
+// Écoute sur 0.0.0.0 (OBLIGATOIRE IKOMA)
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`IKOMA POSTE server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
