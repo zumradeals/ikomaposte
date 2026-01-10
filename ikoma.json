@@ -1,6 +1,7 @@
 {
   "ikoma": {
     "schema_version": "1.0",
+    "app_name": "ikomaposte",
     "profile": "node_server",
     "playbook": "docker-compose",
     "compose_file": "docker-compose.yml",
@@ -14,11 +15,32 @@
       "enabled": true,
       "proxy_engine": "caddy",
       "tls_mode": "auto"
-    },
-    "platforms": {
-      "supabase": {
-        "required": true,
-        "mode": "self-host"
+    }
+  },
+  "platforms": {
+    "supabase": {
+      "required": true,
+      "mode": "shared",
+      "bundle_path": ".",
+      "migrations": {
+        "enabled": true,
+        "path": "migrations",
+        "order": "filename"
+      },
+      "rls": {
+        "enabled": true,
+        "path": "migrations",
+        "fail_on_disabled": true
+      },
+      "seeds": {
+        "enabled": true,
+        "path": "seeds",
+        "environments": ["development", "staging"]
+      },
+      "edge_functions": {
+        "enabled": false,
+        "path": "functions",
+        "deploy_on_migration": false
       }
     }
   }

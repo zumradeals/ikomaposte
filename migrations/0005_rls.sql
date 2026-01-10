@@ -1,11 +1,12 @@
--- =============================================
--- IKOMA POSTE - Migration 0005: Row Level Security
--- =============================================
--- Enables RLS and creates all security policies
+-- Migration: 00005_rls.sql
+-- Description: Enables RLS and creates all security policies
+-- Author: IKOMA Generator
+-- Date: 2025-01-10
+-- IKOMA Supabase Bundle Standard v1.0
 
--- =============================================
+-- ============================================
 -- ENABLE RLS ON ALL TABLES
--- =============================================
+-- ============================================
 
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
@@ -15,29 +16,28 @@ ALTER TABLE public.work_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.work_summaries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.correction_events ENABLE ROW LEVEL SECURITY;
 
--- =============================================
+-- ============================================
 -- POLICIES: categories
 -- Public read, admin write
--- =============================================
+-- ============================================
 
+DROP POLICY IF EXISTS "Categories are publicly readable" ON public.categories;
 CREATE POLICY "Categories are publicly readable"
   ON public.categories
   FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Admins can insert categories" ON public.categories;
 CREATE POLICY "Admins can insert categories"
   ON public.categories
   FOR INSERT
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can update categories" ON public.categories;
 CREATE POLICY "Admins can update categories"
   ON public.categories
   FOR UPDATE
   USING (public.has_role(auth.uid(), 'admin'));
-
--- =============================================
--- POLICIES: user_roles
--- Users can only read their own roles
 -- =============================================
 
 CREATE POLICY "Users can read own roles"

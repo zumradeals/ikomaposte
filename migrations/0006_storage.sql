@@ -1,12 +1,13 @@
--- =============================================
--- IKOMA POSTE - Migration 0006: Storage Buckets
--- =============================================
--- Creates storage buckets and their access policies
+-- Migration: 00006_storage.sql
+-- Description: Creates storage buckets and their access policies
+-- Author: IKOMA Generator
+-- Date: 2025-01-10
+-- IKOMA Supabase Bundle Standard v1.0
 
--- =============================================
+-- ============================================
 -- BUCKET: worker-photos
 -- Public bucket for worker profile photos
--- =============================================
+-- ============================================
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
@@ -19,6 +20,7 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- Public read access for worker photos
+DROP POLICY IF EXISTS "Worker photos are publicly accessible" ON storage.objects;
 CREATE POLICY "Worker photos are publicly accessible"
   ON storage.objects
   FOR SELECT
