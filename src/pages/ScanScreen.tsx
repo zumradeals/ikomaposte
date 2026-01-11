@@ -4,6 +4,7 @@ import { AdminUnlockModal } from '@/components/AdminUnlockModal';
 import { TestScanModal } from '@/components/TestScanModal';
 import { QRScanner } from '@/components/kiosk/QRScanner';
 import { WorkerActionCard } from '@/components/kiosk/WorkerActionCard';
+import { RealTimeClock } from '@/components/kiosk/RealTimeClock';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useWorkerByQrToken, WorkerWithCategory } from '@/hooks/useWorkers';
 import { getDeviceId, getDeviceSecret } from '@/lib/storage';
@@ -209,8 +210,13 @@ export default function ScanScreen() {
         </div>
       )}
 
+      {/* Real-time clock overlay - always visible */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+        <RealTimeClock />
+      </div>
+
       {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center max-w-2xl w-full">
+      <div className="relative z-10 flex flex-col items-center max-w-2xl w-full pt-32 md:pt-40">
         
         {/* IDLE STATE - Show logo and start button */}
         {screenState === 'idle' && (
