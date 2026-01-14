@@ -86,13 +86,8 @@ export interface DecisionResult {
   total_work_minutes: number;
   /** Minutes de retard (si RETARD) */
   late_minutes: number;
-  /** Raison lisible (business-only, no forensic data) */
+  /** Raison lisible (business-only) */
   reason: string;
-  /** 
-   * Internal: Count of events on off-schedule days
-   * NOT for export - caller stores in work_summaries.notes
-   */
-  _offScheduleEventCount?: number;
 }
 
 // ----------------------

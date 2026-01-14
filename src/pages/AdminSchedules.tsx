@@ -88,13 +88,13 @@ export default function AdminSchedules() {
   };
 
   const handleCopySchedules = async () => {
-    if (!effectiveCategoryId || !copyTargetCategoryId) return;
+    if (!effectiveCategoryId || !copyTargetCategoryId || !adminDeviceId || !user?.id) return;
     await copySchedules.mutateAsync({
       sourceCategoryId: effectiveCategoryId,
       targetCategoryId: copyTargetCategoryId,
       replaceAll: replaceAllSchedules,
-      adminDeviceId: adminDeviceId || undefined,
-      actorUserId: user?.id, // Add actor user ID for audit trail
+      adminDeviceId: adminDeviceId,
+      actorUserId: user.id,
     });
     setShowCopyDialog(false);
     setCopyTargetCategoryId(null);

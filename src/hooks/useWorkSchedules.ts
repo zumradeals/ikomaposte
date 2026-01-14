@@ -239,13 +239,13 @@ export function useCopySchedules() {
       targetCategoryId,
       replaceAll = false, // Explicit confirmation required for replace
       adminDeviceId,
-      actorUserId, // Required for audit trail
+      actorUserId, // Required for audit trail (enforced NOT NULL in DB)
     }: {
       sourceCategoryId: string;
       targetCategoryId: string;
       replaceAll?: boolean;
-      adminDeviceId?: string;
-      actorUserId?: string;
+      adminDeviceId: string;
+      actorUserId: string;
     }) => {
       // Fetch source schedules
       const { data: sourceSchedules, error: fetchError } = await supabase
@@ -269,15 +269,13 @@ export function useCopySchedules() {
 
         if (deactivateError) throw deactivateError;
 
-        // Audit log for replaceAll (requires actor_user_id for traceability)
-        if (adminDeviceId) {
-          await supabase.from('admin_audit').insert({
-            device_id: adminDeviceId,
-            actor_user_id: actorUserId || null,
-            event: 'SCHEDULES_REPLACE_ALL',
-            reason: `Replaced all schedules: ${sourceCategoryId} -> ${targetCategoryId}`,
-          });
-        }
+        // Audit log for replaceAll (actor_user_id is required, enforced NOT NULL in DB)
+        await supabase.from('admin_audit').insert({
+          device_id: adminDeviceId,
+          actor_user_id: actorUserId,
+          event: 'SCHEDULES_REPLACE_ALL',
+          reason: `Replaced all schedules: ${sourceCategoryId} -> ${targetCategoryId}`,
+        });
       }
 
       // Create target schedules (per-day upsert)
@@ -300,15 +298,13 @@ export function useCopySchedules() {
 
       if (error) throw error;
 
-      // Audit log for copy (requires actor_user_id for traceability)
-      if (adminDeviceId) {
-        await supabase.from('admin_audit').insert({
-          device_id: adminDeviceId,
-          actor_user_id: actorUserId || null,
-          event: 'SCHEDULES_COPIED',
-          reason: `Copied ${data.length} schedules: ${sourceCategoryId} -> ${targetCategoryId}`,
-        });
-      }
+      // Audit log for copy (actor_user_id is required, enforced NOT NULL in DB)
+      await supabase.from('admin_audit').insert({
+        device_id: adminDeviceId,
+        actor_user_id: actorUserId,
+        event: 'SCHEDULES_COPIED',
+        reason: `Copied ${data.length} schedules: ${sourceCategoryId} -> ${targetCategoryId}`,
+      });
 
       return data;
     },
