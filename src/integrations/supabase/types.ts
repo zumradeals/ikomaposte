@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit: {
+        Row: {
+          created_at: string
+          device_id: string
+          event: string
+          id: string
+          ip_address: string | null
+          reason: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          event: string
+          id?: string
+          ip_address?: string | null
+          reason?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          event?: string
+          id?: string
+          ip_address?: string | null
+          reason?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      admin_secrets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          pin_hash: string
+          rotated_at: string | null
+          rotated_by: string | null
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          pin_hash: string
+          rotated_at?: string | null
+          rotated_by?: string | null
+          scope?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          pin_hash?: string
+          rotated_at?: string | null
+          rotated_by?: string | null
+          scope?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           actif: boolean

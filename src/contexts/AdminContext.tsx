@@ -69,11 +69,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }, [session.isUnlocked, lock]);
 
   const attemptUnlock = useCallback(async (pin: string): Promise<boolean> => {
-    const isValid = await verifyAdminPin(pin);
+    const result = await verifyAdminPin(pin);
     
-    if (isValid) {
+    if (result.success) {
       const now = new Date().toISOString();
-      const duration = getAdminSessionDuration();
+      const duration = result.sessionDurationMs;
       const expiresAt = new Date(Date.now() + duration).toISOString();
       
       setSession({
@@ -96,6 +96,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       return true;
     }
     
+    // Log failure reason for debugging
+    console.log('[Admin] Unlock failed:', result.reason);
     return false;
   }, [lock]);
 

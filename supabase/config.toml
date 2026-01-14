@@ -1,1 +1,10 @@
 project_id = "ghjueojobnchdiavypku"
+
+[functions.verify-admin-pin]
+verify_jwt = false
+
+[functions.rotate-admin-pin]
+verify_jwt = false
+
+[functions.init-admin-pin]
+verify_jwt = false
