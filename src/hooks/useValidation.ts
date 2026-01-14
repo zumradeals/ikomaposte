@@ -1,13 +1,13 @@
 // ============================================
-// Phase 7: HR Validation Hooks
+// Phase 7: HR Validation Hooks (v2)
 // Workflow DRAFT → VALIDATED avec traçabilité
+// Uses atomic RPC hr_validate_summaries
 // ============================================
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ValidationStatusType } from '@/types/business-rules';
 
 /**
  * Récupère les summaries en attente de validation (DRAFT)
@@ -27,7 +27,9 @@ export function usePendingValidations(startDate: Date, endDate: Date) {
             photo_url,
             categories (
               id,
-              nom
+              nom,
+              taux_horaire,
+              devise
             )
           )
         `)
@@ -132,7 +134,6 @@ export function useValidateSummary() {
       });
 
       if (error) {
-        // Parse erreur DB
         if (error.message?.includes('VALIDATION_FAILED')) {
           throw new Error('Validation impossible: le résumé est déjà validé ou n\'existe pas');
         }
@@ -162,7 +163,19 @@ export function useValidateSummary() {
 }
 
 /**
- * Valide plusieurs summaries en lot
+ * Result type from hr_validate_summaries RPC
+ */
+interface BatchValidationResult {
+  validated_count: number;
+  skipped_count: number;
+  error_count: number;
+  errors: string[];
+  total_processed: number;
+}
+
+/**
+ * Valide plusieurs summaries en lot via RPC atomique
+ * Idempotent: ignore les déjà VALIDATED
  */
 export function useBatchValidate() {
   const queryClient = useQueryClient();
@@ -171,54 +184,55 @@ export function useBatchValidate() {
   return useMutation({
     mutationFn: async ({
       summaryIds,
-      validatorId,
     }: {
       summaryIds: string[];
-      validatorId: string;
-    }) => {
-      const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as string[],
-      };
-
-      for (const summaryId of summaryIds) {
-        try {
-          const { error } = await supabase.rpc('validate_work_summary', {
-            p_summary_id: summaryId,
-            p_validator_id: validatorId,
-          });
-
-          if (error) {
-            results.failed++;
-            results.errors.push(error.message);
-          } else {
-            results.success++;
-          }
-        } catch (err) {
-          results.failed++;
-          results.errors.push(err instanceof Error ? err.message : 'Erreur inconnue');
-        }
+    }): Promise<BatchValidationResult> => {
+      if (summaryIds.length === 0) {
+        return {
+          validated_count: 0,
+          skipped_count: 0,
+          error_count: 0,
+          errors: [],
+          total_processed: 0,
+        };
       }
 
-      return results;
+      const { data, error } = await supabase.rpc('hr_validate_summaries', {
+        p_summary_ids: summaryIds,
+      });
+
+      if (error) {
+        if (error.message?.includes('ACCESS_DENIED')) {
+          throw new Error('Accès refusé: rôle admin requis');
+        }
+        throw error;
+      }
+
+      return data as unknown as BatchValidationResult;
     },
-    onSuccess: (results) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['work-summaries'] });
       queryClient.invalidateQueries({ queryKey: ['pending-validations'] });
       queryClient.invalidateQueries({ queryKey: ['validated-summaries'] });
       queryClient.invalidateQueries({ queryKey: ['validation-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['official-export-data'] });
 
-      if (results.failed === 0) {
+      if (result.error_count === 0 && result.skipped_count === 0) {
         toast({
           title: 'Validation réussie',
-          description: `${results.success} résumés validés`,
+          description: `${result.validated_count} résumé(s) validé(s)`,
+        });
+      } else if (result.validated_count > 0) {
+        toast({
+          title: 'Validation partielle',
+          description: `${result.validated_count} validé(s), ${result.skipped_count} ignoré(s), ${result.error_count} erreur(s)`,
+          variant: result.error_count > 0 ? 'destructive' : 'default',
         });
       } else {
         toast({
-          title: 'Validation partielle',
-          description: `${results.success} réussis, ${results.failed} échoués`,
-          variant: 'destructive',
+          title: 'Aucune validation',
+          description: `${result.skipped_count} déjà validé(s), ${result.error_count} erreur(s)`,
+          variant: 'default',
         });
       }
     },
@@ -244,11 +258,9 @@ export function useRejectSummary() {
     mutationFn: async ({
       summaryId,
       reason,
-      rejectorId,
     }: {
       summaryId: string;
       reason: string;
-      rejectorId: string;
     }) => {
       const { data, error } = await supabase
         .from('work_summaries')
