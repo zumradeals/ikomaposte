@@ -24,16 +24,22 @@ export async function verifyAdminPin(pin: string): Promise<VerifyResult> {
   const deviceId = getDeviceId();
   
   try {
-    const { data, error } = await supabase.functions.invoke<VerifyPinResponse>('verify-admin-pin', {
-      body: {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const response = await fetch(`${supabaseUrl}/functions/v1/verify-admin-pin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify({
         pin,
         device_id: deviceId,
         scope: 'global',
-      },
+      }),
     });
 
-    if (error) {
-      console.error('[Admin Auth] Edge function error:', error);
+    if (!response.ok && response.status !== 200) {
+      console.error('[Admin Auth] HTTP error:', response.status, response.statusText);
       return { 
         success: false, 
         sessionDurationMs: 0, 
@@ -41,13 +47,7 @@ export async function verifyAdminPin(pin: string): Promise<VerifyResult> {
       };
     }
 
-    if (!data) {
-      return { 
-        success: false, 
-        sessionDurationMs: 0, 
-        reason: 'EMPTY_RESPONSE' 
-      };
-    }
+    const data: VerifyPinResponse = await response.json();
 
     return {
       success: data.ok,
@@ -68,24 +68,33 @@ export async function verifyAdminPin(pin: string): Promise<VerifyResult> {
 
 export async function rotateAdminPin(currentPin: string, newPin: string): Promise<{ success: boolean; reason?: string }> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (!session) {
+    if (sessionError || !session?.access_token) {
       return { success: false, reason: 'NOT_AUTHENTICATED' };
     }
 
-    const { data, error } = await supabase.functions.invoke('rotate-admin-pin', {
-      body: {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const response = await fetch(`${supabaseUrl}/functions/v1/rotate-admin-pin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify({
         current_pin: currentPin,
         new_pin: newPin,
         scope: 'global',
-      },
+      }),
     });
 
-    if (error) {
-      console.error('[Admin Auth] Rotate error:', error);
+    if (!response.ok && response.status !== 200) {
+      console.error('[Admin Auth] Rotate HTTP error:', response.status);
       return { success: false, reason: 'CONNECTION_ERROR' };
     }
+
+    const data = await response.json();
 
     return {
       success: data?.ok || false,
@@ -99,25 +108,42 @@ export async function rotateAdminPin(currentPin: string, newPin: string): Promis
 
 export async function initAdminPin(pin: string, force = false): Promise<{ success: boolean; reason?: string }> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    // Force session refresh to ensure we have a valid token
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (!session) {
+    if (sessionError) {
+      console.error('[Admin Auth] Session error:', sessionError);
+      return { success: false, reason: 'SESSION_ERROR' };
+    }
+    
+    if (!session?.access_token) {
+      console.error('[Admin Auth] No access token available');
       return { success: false, reason: 'NOT_AUTHENTICATED' };
     }
 
-    const { data, error } = await supabase.functions.invoke('init-admin-pin', {
-      body: {
+    // Use fetch directly to ensure Authorization header is sent
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const response = await fetch(`${supabaseUrl}/functions/v1/init-admin-pin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify({
         pin,
         scope: 'global',
         force,
-      },
+      }),
     });
 
-    if (error) {
-      console.error('[Admin Auth] Init error:', error);
+    if (!response.ok && response.status !== 200) {
+      console.error('[Admin Auth] HTTP error:', response.status, response.statusText);
       return { success: false, reason: 'CONNECTION_ERROR' };
     }
 
+    const data = await response.json();
+    
     return {
       success: data?.ok || false,
       reason: data?.reason,
