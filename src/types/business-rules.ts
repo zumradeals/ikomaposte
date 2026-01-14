@@ -88,8 +88,6 @@ export interface DecisionResult {
   late_minutes: number;
   /** Raison lisible */
   reason: string;
-  /** Trace audit interne (non-exportée) - ex: OFF_SCHEDULE_EVENTS:3 */
-  _audit_trace?: string;
 }
 
 // ----------------------

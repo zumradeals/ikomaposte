@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScheduleForm } from '@/components/admin/ScheduleForm';
 import { useCategories } from '@/hooks/useCategories';
 import { 
@@ -18,6 +19,7 @@ import {
 } from '@/hooks/useWorkSchedules';
 import { WorkSchedule, DAY_OF_WEEK_LABELS, DAY_OF_WEEK_SHORT } from '@/types/business-rules';
 import { Plus, Edit, Clock, Copy, Calendar } from 'lucide-react';
+import { getDeviceId } from '@/lib/storage';
 
 export default function AdminSchedules() {
   const { isUnlocked } = useAdmin();
@@ -26,7 +28,11 @@ export default function AdminSchedules() {
   const [editingSchedule, setEditingSchedule] = useState<WorkSchedule | null>(null);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [copyTargetCategoryId, setCopyTargetCategoryId] = useState<string | null>(null);
+  const [replaceAllSchedules, setReplaceAllSchedules] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
+  
+  // Get device ID for audit logging
+  const adminDeviceId = getDeviceId();
 
   const { data: categories = [], isLoading: categoriesLoading } = useCategories(true);
   const activeCategories = categories.filter(c => c.actif);
@@ -84,9 +90,12 @@ export default function AdminSchedules() {
     await copySchedules.mutateAsync({
       sourceCategoryId: effectiveCategoryId,
       targetCategoryId: copyTargetCategoryId,
+      replaceAll: replaceAllSchedules,
+      adminDeviceId: adminDeviceId || undefined,
     });
     setShowCopyDialog(false);
     setCopyTargetCategoryId(null);
+    setReplaceAllSchedules(false);
   };
 
   const weekDays = [1, 2, 3, 4, 5, 6, 0]; // Lundi à Dimanche
@@ -290,16 +299,23 @@ export default function AdminSchedules() {
         </Dialog>
 
         {/* Copy Schedules Dialog */}
-        <Dialog open={showCopyDialog} onOpenChange={setShowCopyDialog}>
+        <Dialog open={showCopyDialog} onOpenChange={(open) => {
+          setShowCopyDialog(open);
+          if (!open) {
+            setCopyTargetCategoryId(null);
+            setReplaceAllSchedules(false);
+          }
+        }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Copier les horaires vers une autre catégorie</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Les horaires actifs de la catégorie actuelle seront copiés vers la catégorie cible.
-                Les horaires existants de la catégorie cible seront désactivés.
+                Les horaires actifs de la catégorie source seront copiés vers la catégorie cible.
+                Par défaut, les jours existants sont fusionnés (upsert par jour).
               </p>
+              
               <div className="space-y-2">
                 <label className="text-sm font-medium">Catégorie cible</label>
                 <Tabs value={copyTargetCategoryId || undefined} onValueChange={setCopyTargetCategoryId}>
@@ -318,6 +334,26 @@ export default function AdminSchedules() {
                   </TabsList>
                 </Tabs>
               </div>
+
+              {/* Replace all option with explicit confirmation */}
+              <div className="p-4 border border-destructive/30 rounded-lg bg-destructive/5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label htmlFor="replaceAll" className="text-sm font-medium text-destructive">
+                      Remplacer tous les horaires cible
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      ⚠️ Désactive TOUS les horaires existants de la catégorie cible avant copie
+                    </p>
+                  </div>
+                  <Switch
+                    id="replaceAll"
+                    checked={replaceAllSchedules}
+                    onCheckedChange={setReplaceAllSchedules}
+                  />
+                </div>
+              </div>
+
               <div className="flex gap-4 pt-4">
                 <Button
                   variant="outline"
@@ -329,9 +365,14 @@ export default function AdminSchedules() {
                 <Button
                   onClick={handleCopySchedules}
                   className="flex-1"
+                  variant={replaceAllSchedules ? 'destructive' : 'default'}
                   disabled={!copyTargetCategoryId || copySchedules.isPending}
                 >
-                  {copySchedules.isPending ? 'Copie...' : 'Copier'}
+                  {copySchedules.isPending 
+                    ? 'Copie...' 
+                    : replaceAllSchedules 
+                      ? 'Remplacer et copier' 
+                      : 'Fusionner et copier'}
                 </Button>
               </div>
             </div>
