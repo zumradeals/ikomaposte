@@ -46,6 +46,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  QrCode,
 } from 'lucide-react';
 import { 
   useDocuments, 
@@ -59,6 +60,7 @@ import {
 } from '@/hooks/useDocuments';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { DocumentQRCode } from './DocumentQRCode';
 
 interface DocumentHistoryTableProps {
   periodMonth?: string;
@@ -74,6 +76,7 @@ export function DocumentHistoryTable({ periodMonth }: DocumentHistoryTableProps)
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [revokeReason, setRevokeReason] = useState('');
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
@@ -242,6 +245,15 @@ export function DocumentHistoryTable({ periodMonth }: DocumentHistoryTableProps)
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setSelectedDoc(doc);
+                                    setQrDialogOpen(true);
+                                  }}
+                                >
+                                  <QrCode className="h-4 w-4 mr-2" />
+                                  Afficher QR Code
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedDoc(doc);
                                     setVerificationResult(null);
                                     setVerifyDialogOpen(true);
                                   }}
@@ -282,7 +294,23 @@ export function DocumentHistoryTable({ periodMonth }: DocumentHistoryTableProps)
         </CardContent>
       </Card>
 
-      {/* Sign Dialog */}
+      {/* QR Code Dialog */}
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5" />
+              QR Code de vérification
+            </DialogTitle>
+            <DialogDescription>
+              Ce QR code permet de vérifier l'authenticité du document {selectedDoc?.document_code}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDoc && (
+            <DocumentQRCode documentCode={selectedDoc.document_code} showCard={false} />
+          )}
+        </DialogContent>
+      </Dialog>
       <Dialog open={signDialogOpen} onOpenChange={setSignDialogOpen}>
         <DialogContent>
           <DialogHeader>

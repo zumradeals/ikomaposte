@@ -21,6 +21,7 @@ import AdminExports from "./pages/AdminExports";
 import AdminSecurity from "./pages/AdminSecurity";
 import AdminSchedules from "./pages/AdminSchedules";
 import AdminValidation from "./pages/AdminValidation";
+import VerifyDocument from "./pages/VerifyDocument";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,10 @@ const App = () => {
                 <Route path="/admin/security" element={<AdminSecurity />} />
                 {/* Session diagnostics (PIN only, no login required) */}
                 <Route path="/admin/session" element={<AdminSessionDiagnostic />} />
+                
+                {/* Public document verification - no auth required */}
+                <Route path="/verify/:documentCode" element={<VerifyDocument />} />
+                <Route path="/verify" element={<VerifyDocument />} />
                 
                 {/* All other routes redirect to scan screen (kiosk mode) */}
                 <Route path="*" element={<Navigate to="/" replace />} />
