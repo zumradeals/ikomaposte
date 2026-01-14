@@ -143,14 +143,14 @@ Deno.serve(async (req: Request) => {
     if (!pin || typeof pin !== "string" || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
       return new Response(
         JSON.stringify({ ok: false, reason: "INVALID_PIN_FORMAT" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (!device_id || typeof device_id !== "string") {
       return new Response(
         JSON.stringify({ ok: false, reason: "MISSING_DEVICE_ID" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -183,18 +183,18 @@ Deno.serve(async (req: Request) => {
       const retryAfterSec = Math.ceil((rateLimitCheck.retryAfterMs || 0) / 1000);
       
       return new Response(
-        JSON.stringify({ 
-          ok: false, 
+        JSON.stringify({
+          ok: false,
           reason: "RATE_LIMITED",
           retry_after_ms: rateLimitCheck.retryAfterMs,
         }),
-        { 
-          status: 429, 
-          headers: { 
-            ...corsHeaders, 
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
             "Content-Type": "application/json",
             "Retry-After": String(retryAfterSec),
-          } 
+          },
         }
       );
     }
@@ -215,7 +215,7 @@ Deno.serve(async (req: Request) => {
 
     // Fetch active PIN hash for the scope
     // Try specific scope first, then fall back to global
-    let { data: secretData, error: secretError } = await supabase
+    let { data: secretData, error: _secretError } = await supabase
       .from("admin_secrets")
       .select("id, pin_hash, scope")
       .eq("is_active", true)
@@ -232,7 +232,7 @@ Deno.serve(async (req: Request) => {
         .single();
       
       secretData = globalResult.data;
-      secretError = globalResult.error;
+      _secretError = globalResult.error;
     }
 
     if (!secretData) {
@@ -284,7 +284,7 @@ Deno.serve(async (req: Request) => {
 
       return new Response(
         JSON.stringify(response),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

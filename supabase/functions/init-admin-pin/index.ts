@@ -32,9 +32,11 @@ Deno.serve(async (req: Request) => {
     // Verify admin authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      // Return 200 so the web client can handle the error as a normal response
+      // (supabase-js treats non-2xx as an exception-like error)
       return new Response(
         JSON.stringify({ ok: false, reason: "UNAUTHORIZED" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -51,7 +53,7 @@ Deno.serve(async (req: Request) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ ok: false, reason: "INVALID_TOKEN" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -79,7 +81,7 @@ Deno.serve(async (req: Request) => {
       if (!roleData) {
         return new Response(
           JSON.stringify({ ok: false, reason: "NOT_ADMIN" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     } else {
@@ -113,7 +115,7 @@ Deno.serve(async (req: Request) => {
     if (!pin || !/^\d{4}$/.test(pin)) {
       return new Response(
         JSON.stringify({ ok: false, reason: "INVALID_PIN_FORMAT" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -128,7 +130,7 @@ Deno.serve(async (req: Request) => {
     if (existingSecret && !force) {
       return new Response(
         JSON.stringify({ ok: false, reason: "PIN_ALREADY_EXISTS", hint: "Use rotate-admin-pin to change existing PIN" }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
