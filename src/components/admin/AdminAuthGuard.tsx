@@ -27,20 +27,28 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
     }
   }, [isLoading]);
 
+  // If user is logged in but not admin, do not show a disruptive "blocking" screen.
+  // Instead, redirect to the initial security setup (which can bootstrap the first admin).
+  useEffect(() => {
+    if (!isLoading && user && !isAdmin) {
+      navigate('/admin/security/setup', { replace: true });
+    }
+  }, [isLoading, user, isAdmin, navigate]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
           <p className="text-muted-foreground">Vérification des autorisations...</p>
-          
+
           {showRepairButton && (
             <div className="mt-6 space-y-2">
               <p className="text-sm text-muted-foreground">
                 Chargement trop long ?
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => repairSession()}
               >
@@ -59,18 +67,9 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
     return <AdminLoginForm />;
   }
 
-  // Logged in but not admin - silently return to kiosk (keeps security, avoids disruptive blocking screen)
+  // Logged in but not admin - redirect handled by effect above
   if (!isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-3">
-          <p className="text-muted-foreground">Accès administrateur requis.</p>
-          <Button variant="outline" onClick={() => navigate('/', { replace: true })}>
-            Retour au scan
-          </Button>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // User is authenticated and is admin
