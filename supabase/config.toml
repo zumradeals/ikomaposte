@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.init-admin-pin]
 verify_jwt = false
+
+[functions.generate-pdf]
+verify_jwt = false
