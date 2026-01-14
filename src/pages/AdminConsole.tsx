@@ -1,32 +1,38 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useCategories } from '@/hooks/useCategories';
 import { useWorkers } from '@/hooks/useWorkers';
 import { useTodayEvents } from '@/hooks/useWorkEvents';
 import { getAdminEvents, getDeviceInfo } from '@/lib/storage';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Monitor, Users, Tags, List, Clock, Shield, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Monitor,
+  Users,
+  Tags,
+  List,
+  Clock,
+  ShieldCheck,
+  ShieldAlert,
+  Lock,
+  KeyRound,
+  Shield,
+} from 'lucide-react';
+import { AdminAuthGuard } from '@/components/admin/AdminAuthGuard';
+import { AdminUnlockModal } from '@/components/AdminUnlockModal';
+import { supabase } from '@/integrations/supabase/client';
 
-export default function AdminConsole() {
+function AdminConsoleUnlocked() {
   const navigate = useNavigate();
-  const { isUnlocked } = useAdmin();
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
   const events = getAdminEvents();
   const deviceInfo = getDeviceInfo();
-  
+
   const { data: categories = [] } = useCategories(true);
   const { data: workers = [] } = useWorkers({ includeInactive: true });
   const { data: todayEvents = [] } = useTodayEvents('all');
-
-  // Protect route - redirect if not unlocked
-  useEffect(() => {
-    if (!isUnlocked) {
-      navigate('/', { replace: true });
-    }
-  }, [isUnlocked, navigate]);
 
   const formatTimestamp = (iso: string) => {
     const date = new Date(iso);
@@ -40,21 +46,17 @@ export default function AdminConsole() {
     });
   };
 
-  if (!isUnlocked) {
-    return null;
-  }
-
-  const activeWorkers = workers.filter(w => w.actif).length;
-  const activeCategories = categories.filter(c => c.actif).length;
-  const trustedEvents = todayEvents.filter(e => e.trust_status === 'trusted').length;
-  const untrustedEvents = todayEvents.filter(e => e.trust_status === 'untrusted').length;
+  const activeWorkers = workers.filter((w) => w.actif).length;
+  const activeCategories = categories.filter((c) => c.actif).length;
+  const trustedEvents = todayEvents.filter((e) => e.trust_status === 'trusted').length;
+  const untrustedEvents = todayEvents.filter((e) => e.trust_status === 'untrusted').length;
 
   return (
     <AdminLayout title="Tableau de bord">
       <div className="space-y-6">
         {/* Stats cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card 
+          <Card
             className="cursor-pointer hover:border-primary transition-colors"
             onClick={() => navigate('/admin/workers')}
           >
@@ -76,7 +78,7 @@ export default function AdminConsole() {
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:border-primary transition-colors"
             onClick={() => navigate('/admin/categories')}
           >
@@ -98,7 +100,7 @@ export default function AdminConsole() {
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:border-primary transition-colors"
             onClick={() => navigate('/admin/events')}
           >
@@ -112,8 +114,9 @@ export default function AdminConsole() {
                   <p className="text-sm text-muted-foreground">
                     Pointages aujourd'hui
                     <span className="text-xs ml-1">
-                      ({trustedEvents} <ShieldCheck className="inline w-3 h-3 text-success" /> / 
-                       {untrustedEvents} <ShieldAlert className="inline w-3 h-3 text-destructive" />)
+                      ({trustedEvents} <ShieldCheck className="inline w-3 h-3 text-success" /> /
+                      {untrustedEvents}{' '}
+                      <ShieldAlert className="inline w-3 h-3 text-destructive" />)
                     </span>
                   </p>
                 </div>
@@ -158,18 +161,19 @@ export default function AdminConsole() {
             ) : (
               <div className="max-h-[300px] overflow-y-auto space-y-2">
                 {[...events].reverse().map((event) => (
-                  <div 
-                    key={event.id} 
-                    className="flex items-center gap-4 p-4 bg-muted rounded-xl"
-                  >
-                    <div className={`w-3 h-3 rounded-full ${
-                      event.event_type === 'ADMIN_UNLOCK' ? 'bg-success' : 'bg-warning'
-                    }`} />
+                  <div key={event.id} className="flex items-center gap-4 p-4 bg-muted rounded-xl">
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        event.event_type === 'ADMIN_UNLOCK' ? 'bg-success' : 'bg-warning'
+                      }`}
+                    />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={`font-semibold ${
-                          event.event_type === 'ADMIN_UNLOCK' ? 'text-success' : 'text-warning'
-                        }`}>
+                        <span
+                          className={`font-semibold ${
+                            event.event_type === 'ADMIN_UNLOCK' ? 'text-success' : 'text-warning'
+                          }`}
+                        >
                           {event.event_type === 'ADMIN_UNLOCK' ? 'Déverrouillage' : 'Verrouillage'}
                         </span>
                         <span className="text-xs text-muted-foreground px-2 py-0.5 bg-background rounded">
@@ -177,9 +181,7 @@ export default function AdminConsole() {
                         </span>
                       </div>
                       {event.optional_reason && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {event.optional_reason}
-                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">{event.optional_reason}</p>
                       )}
                     </div>
                     <div className="text-right">
@@ -207,7 +209,7 @@ export default function AdminConsole() {
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                   <li>Sur l'écran Scan, appuyez longuement (5 sec) sur le coin supérieur gauche</li>
                   <li>Une modale de déverrouillage apparaît</li>
-                  <li>Entrez le code PIN (défaut: 1234)</li>
+                  <li>Entrez le code PIN administrateur</li>
                   <li>Vous accédez à la Console Admin</li>
                 </ol>
               </div>
@@ -225,4 +227,99 @@ export default function AdminConsole() {
       </div>
     </AdminLayout>
   );
+}
+
+function AdminConsoleLocked() {
+  const navigate = useNavigate();
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [pinConfigured, setPinConfigured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    const run = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('verify-admin-pin', {
+          body: { pin: '0000', device_id: 'status-check', scope: 'global' },
+        });
+        if (!alive) return;
+        setPinConfigured(data?.reason !== 'NO_PIN_CONFIGURED');
+      } catch {
+        // If we can't determine, stay neutral and allow user to try the unlock.
+        if (!alive) return;
+        setPinConfigured(null);
+      }
+    };
+
+    run();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const showInitPin = useMemo(() => pinConfigured === false, [pinConfigured]);
+
+  return (
+    <AdminAuthGuard>
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-primary" />
+              Console admin verrouillée
+            </CardTitle>
+            <CardDescription>
+              Pour accéder à l'administration, vous devez déverrouiller la session avec le PIN.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {showInitPin && (
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertTitle>PIN non configuré</AlertTitle>
+                <AlertDescription>
+                  Aucun PIN n'est encore défini. Allez dans « Sécurité » pour initialiser le premier PIN.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex flex-col gap-2">
+              {!showInitPin && (
+                <Button className="w-full" onClick={() => setUnlockOpen(true)}>
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  Entrer le PIN
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/admin/security')}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Sécurité (initialiser / changer le PIN)
+              </Button>
+
+              <Button variant="ghost" className="w-full" onClick={() => navigate('/')}
+              >
+                Retour au scan
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <AdminUnlockModal open={unlockOpen} onOpenChange={setUnlockOpen} />
+      </div>
+    </AdminAuthGuard>
+  );
+}
+
+export default function AdminConsole() {
+  const { isUnlocked } = useAdmin();
+
+  if (!isUnlocked) {
+    return <AdminConsoleLocked />;
+  }
+
+  return <AdminConsoleUnlocked />;
 }
