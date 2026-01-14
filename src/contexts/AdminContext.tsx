@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { AdminSession } from '@/types/ikoma';
-import { verifyAdminPin, getAdminSessionDuration } from '@/lib/admin-auth';
+import { verifyAdminPin, getAdminSessionDuration, VerifyResult } from '@/lib/admin-auth';
 import { appendAdminEvent } from '@/lib/storage';
 
 interface AdminContextType {
   session: AdminSession;
   isUnlocked: boolean;
-  attemptUnlock: (pin: string) => Promise<boolean>;
+  attemptUnlock: (pin: string) => Promise<VerifyResult>;
   lock: (reason?: string) => void;
   remainingTime: number;
 }
@@ -68,7 +68,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     }, duration);
   }, [session.isUnlocked, lock]);
 
-  const attemptUnlock = useCallback(async (pin: string): Promise<boolean> => {
+  const attemptUnlock = useCallback(async (pin: string): Promise<VerifyResult> => {
     const result = await verifyAdminPin(pin);
     
     if (result.success) {
@@ -92,13 +92,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       activityTimeoutRef.current = setTimeout(() => {
         lock('Inactivité - session expirée automatiquement');
       }, duration);
-      
-      return true;
+    } else {
+      console.log('[Admin] Unlock failed:', result.reason);
     }
     
-    // Log failure reason for debugging
-    console.log('[Admin] Unlock failed:', result.reason);
-    return false;
+    return result;
   }, [lock]);
 
   // Countdown timer

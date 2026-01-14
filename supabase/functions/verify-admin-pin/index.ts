@@ -6,10 +6,111 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============ RATE LIMITING (in-memory, per-instance) ============
+// In production with multiple instances, use Redis/KV store instead
+interface RateLimitEntry {
+  attempts: number;
+  lastAttempt: number;
+  lockedUntil: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+const RATE_LIMIT_CONFIG = {
+  maxAttempts: 5,           // Max failed attempts before lockout
+  windowMs: 5 * 60 * 1000,  // 5 minute window
+  lockoutMs: 15 * 60 * 1000, // 15 minute lockout after max attempts
+  cleanupIntervalMs: 60 * 1000, // Cleanup old entries every minute
+};
+
+// Cleanup old entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    // Remove entries that are past their lockout and window
+    if (now > entry.lockedUntil && now - entry.lastAttempt > RATE_LIMIT_CONFIG.windowMs) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, RATE_LIMIT_CONFIG.cleanupIntervalMs);
+
+function checkRateLimit(key: string): { allowed: boolean; retryAfterMs?: number; attemptsRemaining?: number } {
+  const now = Date.now();
+  const entry = rateLimitStore.get(key);
+
+  if (!entry) {
+    return { allowed: true, attemptsRemaining: RATE_LIMIT_CONFIG.maxAttempts };
+  }
+
+  // Check if currently locked out
+  if (entry.lockedUntil > now) {
+    return { 
+      allowed: false, 
+      retryAfterMs: entry.lockedUntil - now 
+    };
+  }
+
+  // Check if window has expired - reset counter
+  if (now - entry.lastAttempt > RATE_LIMIT_CONFIG.windowMs) {
+    rateLimitStore.delete(key);
+    return { allowed: true, attemptsRemaining: RATE_LIMIT_CONFIG.maxAttempts };
+  }
+
+  // Check attempts within window
+  if (entry.attempts >= RATE_LIMIT_CONFIG.maxAttempts) {
+    // Trigger lockout
+    entry.lockedUntil = now + RATE_LIMIT_CONFIG.lockoutMs;
+    return { 
+      allowed: false, 
+      retryAfterMs: RATE_LIMIT_CONFIG.lockoutMs 
+    };
+  }
+
+  return { 
+    allowed: true, 
+    attemptsRemaining: RATE_LIMIT_CONFIG.maxAttempts - entry.attempts 
+  };
+}
+
+function recordFailedAttempt(key: string): void {
+  const now = Date.now();
+  const entry = rateLimitStore.get(key);
+
+  if (!entry) {
+    rateLimitStore.set(key, {
+      attempts: 1,
+      lastAttempt: now,
+      lockedUntil: 0,
+    });
+    return;
+  }
+
+  // Reset if window expired
+  if (now - entry.lastAttempt > RATE_LIMIT_CONFIG.windowMs) {
+    entry.attempts = 1;
+    entry.lastAttempt = now;
+    entry.lockedUntil = 0;
+    return;
+  }
+
+  entry.attempts++;
+  entry.lastAttempt = now;
+
+  // Apply lockout if max attempts reached
+  if (entry.attempts >= RATE_LIMIT_CONFIG.maxAttempts) {
+    entry.lockedUntil = now + RATE_LIMIT_CONFIG.lockoutMs;
+  }
+}
+
+function resetRateLimit(key: string): void {
+  rateLimitStore.delete(key);
+}
+
+// ============ END RATE LIMITING ============
+
 interface VerifyPinRequest {
   pin: string;
   device_id: string;
-  device_secret?: string;
   scope?: string;
 }
 
@@ -17,6 +118,8 @@ interface VerifyPinResponse {
   ok: boolean;
   reason?: string;
   session_duration_ms?: number;
+  retry_after_ms?: number;
+  attempts_remaining?: number;
 }
 
 Deno.serve(async (req: Request) => {
@@ -34,7 +137,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body: VerifyPinRequest = await req.json();
-    const { pin, device_id, device_secret, scope = "global" } = body;
+    const { pin, device_id, scope = "global" } = body;
 
     // Validation
     if (!pin || typeof pin !== "string" || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
@@ -51,17 +154,55 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Create Supabase client with service role (bypasses RLS)
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get client info for audit
-    const userAgent = req.headers.get("user-agent") || "unknown";
+    // Get client info for rate limiting key and audit
     const forwardedFor = req.headers.get("x-forwarded-for");
     const realIp = req.headers.get("x-real-ip");
     const ipAddress = forwardedFor?.split(",")[0]?.trim() || realIp || "unknown";
+    const userAgent = req.headers.get("user-agent") || "unknown";
+
+    // Rate limit key: combine device_id and IP for stronger protection
+    const rateLimitKey = `${device_id}:${ipAddress}`;
+
+    // Check rate limit BEFORE any processing
+    const rateLimitCheck = checkRateLimit(rateLimitKey);
+    if (!rateLimitCheck.allowed) {
+      // Create Supabase client for audit logging
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      // Log rate limit hit
+      await supabase.from("admin_audit").insert({
+        device_id,
+        event: "ADMIN_LOGIN_RATE_LIMITED",
+        reason: `retry_after_ms=${rateLimitCheck.retryAfterMs}`,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      });
+
+      const retryAfterSec = Math.ceil((rateLimitCheck.retryAfterMs || 0) / 1000);
+      
+      return new Response(
+        JSON.stringify({ 
+          ok: false, 
+          reason: "RATE_LIMITED",
+          retry_after_ms: rateLimitCheck.retryAfterMs,
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "Retry-After": String(retryAfterSec),
+          } 
+        }
+      );
+    }
+
+    // Create Supabase client with service role (bypasses RLS)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Log the attempt
     await supabase.from("admin_audit").insert({
@@ -95,8 +236,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!secretData) {
-      // No PIN configured - this is a setup issue
-      // Log failure
+      // No PIN configured - this is a setup issue, don't count against rate limit
       await supabase.from("admin_audit").insert({
         device_id,
         event: "ADMIN_LOGIN_FAIL",
@@ -116,47 +256,42 @@ Deno.serve(async (req: Request) => {
     const isValid = await bcrypt.compare(pin, secretData.pin_hash);
 
     if (!isValid) {
+      // Record failed attempt for rate limiting
+      recordFailedAttempt(rateLimitKey);
+      
+      // Get updated attempts remaining
+      const updatedCheck = checkRateLimit(rateLimitKey);
+
       // Log failure
       await supabase.from("admin_audit").insert({
         device_id,
         event: "ADMIN_LOGIN_FAIL",
-        reason: "INVALID_PIN",
+        reason: `INVALID_PIN, attempts_remaining=${updatedCheck.attemptsRemaining || 0}`,
         ip_address: ipAddress,
         user_agent: userAgent,
       });
 
+      const response: VerifyPinResponse = {
+        ok: false,
+        reason: "INVALID_PIN",
+        attempts_remaining: updatedCheck.attemptsRemaining,
+      };
+
+      // If now locked out, include retry info
+      if (!updatedCheck.allowed && updatedCheck.retryAfterMs) {
+        response.retry_after_ms = updatedCheck.retryAfterMs;
+      }
+
       return new Response(
-        JSON.stringify({ ok: false, reason: "INVALID_PIN" }),
+        JSON.stringify(response),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Optional: Verify device trust if device_secret provided
-    if (device_secret) {
-      const { data: deviceData } = await supabase
-        .from("devices")
-        .select("id, device_secret")
-        .eq("device_id", device_id)
-        .eq("actif", true)
-        .single();
+    // Success! Reset rate limit counter for this key
+    resetRateLimit(rateLimitKey);
 
-      if (!deviceData || deviceData.device_secret !== device_secret) {
-        await supabase.from("admin_audit").insert({
-          device_id,
-          event: "ADMIN_LOGIN_FAIL",
-          reason: "DEVICE_SECRET_MISMATCH",
-          ip_address: ipAddress,
-          user_agent: userAgent,
-        });
-
-        return new Response(
-          JSON.stringify({ ok: false, reason: "DEVICE_NOT_TRUSTED" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-    // Success! Log it
+    // Log success
     await supabase.from("admin_audit").insert({
       device_id,
       event: "ADMIN_LOGIN_SUCCESS",

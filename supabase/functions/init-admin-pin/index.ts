@@ -9,8 +9,11 @@ const corsHeaders = {
 interface InitPinRequest {
   pin: string;
   scope?: string;
-  force?: boolean; // Only for initial setup
+  force?: boolean;
 }
+
+// Note: device_secret removed from PIN verification flow
+// Device trust is managed separately via the devices table
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
