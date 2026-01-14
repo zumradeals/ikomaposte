@@ -98,18 +98,25 @@ function applySingleCorrection(
       return applyAdjustTime(events, correction, payloadData);
     
     case 'mark_absent':
+      // NOTE: mark_absent is currently an ANNOTATION only.
+      // Without a planning system, we can't truly determine absence.
+      // This marks the day with no payable work (empty events).
+      // Future: integrate with planning to validate against expected schedule.
       return {
         applied: true,
-        events: [], // No events = absent day
-        note: `Journée marquée absente: ${justification}`,
+        events: [], // No events = absent day (0 work minutes, 0 amount)
+        note: `[ANNOTATION] Journée marquée absente (sans planning): ${justification}`,
       };
     
     case 'mark_complete':
-      // Mark as complete means we accept the events as-is
+      // NOTE: mark_complete is currently an ANNOTATION only.
+      // It accepts the current events as valid despite detected anomalies.
+      // This allows payroll calculation to proceed on days with edge cases.
+      // Future: could trigger a validation workflow.
       return {
         applied: true,
         events,
-        note: `Journée validée malgré anomalie (${anomaly_type}): ${justification}`,
+        note: `[ANNOTATION] Journée validée malgré anomalie (${anomaly_type}): ${justification}`,
       };
     
     default:

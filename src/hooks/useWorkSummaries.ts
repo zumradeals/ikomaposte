@@ -321,48 +321,36 @@ export function useCalculateSummary() {
         throw new Error(result.error || 'Calcul échoué');
       }
 
-      // BUILD #1: Versioning - mark old as not current, create new version
-      const newRevision = existingSummary ? existingSummary.revision + 1 : 1;
+      // BUILD #1: Use atomic DB function for versioning + concurrency protection
+      const { data: savedSummary, error: saveError } = await supabase
+        .rpc('create_summary_version', {
+          p_worker_id: result.summary.worker_id,
+          p_work_date: result.summary.work_date,
+          p_total_work_minutes: result.summary.total_work_minutes,
+          p_total_pause_minutes: result.summary.total_pause_minutes,
+          p_total_amount: result.summary.total_amount,
+          p_taux_horaire_applied: result.summary.taux_horaire_applied,
+          p_devise: result.summary.devise,
+          p_auto_closed: result.summary.auto_closed,
+          p_auto_close_time: result.summary.auto_close_time,
+          p_events_used: result.summary.events_used,
+          p_segments_json: result.summary.segments_json as unknown as null,
+          p_notes: result.summary.notes,
+          p_calculation_version: CALCULATION_VERSION,
+        });
 
-      if (existingSummary) {
-        // Mark old version as not current
-        const { error: updateError } = await supabase
-          .from('work_summaries')
-          .update({ is_current: false })
-          .eq('id', existingSummary.id);
-
-        if (updateError) throw updateError;
+      if (saveError) {
+        // Parse lock error from DB function
+        if (saveError.message?.includes('SUMMARY_LOCKED')) {
+          const match = saveError.message.match(/id=([^,]+),locked_by=([^,]+),locked_at=(.+)/);
+          if (match) {
+            throw new SummaryLockError(match[1], match[2], match[3]);
+          }
+        }
+        throw saveError;
       }
 
-      // Insert new version
-      const { data: savedSummary, error: saveError } = await supabase
-        .from('work_summaries')
-        .insert([{
-          worker_id: result.summary.worker_id,
-          work_date: result.summary.work_date,
-          total_work_minutes: result.summary.total_work_minutes,
-          total_pause_minutes: result.summary.total_pause_minutes,
-          total_amount: result.summary.total_amount,
-          devise: result.summary.devise,
-          taux_horaire_applied: result.summary.taux_horaire_applied,
-          auto_closed: result.summary.auto_closed,
-          auto_close_time: result.summary.auto_close_time,
-          calculation_version: CALCULATION_VERSION,
-          events_used: result.summary.events_used,
-          segments_json: result.summary.segments_json as unknown as null,
-          notes: result.summary.notes,
-          // BUILD #1: Versioning fields
-          revision: newRevision,
-          is_current: true,
-          supersedes_id: existingSummary?.id || null,
-          locked: false,
-          locked_by: null,
-          locked_at: null,
-        }])
-        .select()
-        .single();
-
-      if (saveError) throw saveError;
+      const newRevision = savedSummary?.revision || 1;
 
       return { 
         summary: savedSummary, 
@@ -512,43 +500,34 @@ export function useBatchCalculateSummaries() {
         );
 
         if (result.success && result.summary) {
-          const newRevision = existingSummary ? existingSummary.revision + 1 : 1;
-
-          // Mark old version as not current
-          if (existingSummary) {
-            await supabase
-              .from('work_summaries')
-              .update({ is_current: false })
-              .eq('id', existingSummary.id);
-          }
-
-          // Insert new version
+          // BUILD #1: Use atomic DB function for versioning + concurrency protection
           const { error } = await supabase
-            .from('work_summaries')
-            .insert([{
-              worker_id: result.summary.worker_id,
-              work_date: result.summary.work_date,
-              total_work_minutes: result.summary.total_work_minutes,
-              total_pause_minutes: result.summary.total_pause_minutes,
-              total_amount: result.summary.total_amount,
-              devise: result.summary.devise,
-              taux_horaire_applied: result.summary.taux_horaire_applied,
-              auto_closed: result.summary.auto_closed,
-              auto_close_time: result.summary.auto_close_time,
-              calculation_version: CALCULATION_VERSION,
-              events_used: result.summary.events_used,
-              segments_json: result.summary.segments_json as unknown as null,
-              notes: result.summary.notes,
-              revision: newRevision,
-              is_current: true,
-              supersedes_id: existingSummary?.id || null,
-              locked: false,
-              locked_by: null,
-              locked_at: null,
-            }]);
+            .rpc('create_summary_version', {
+              p_worker_id: result.summary.worker_id,
+              p_work_date: result.summary.work_date,
+              p_total_work_minutes: result.summary.total_work_minutes,
+              p_total_pause_minutes: result.summary.total_pause_minutes,
+              p_total_amount: result.summary.total_amount,
+              p_taux_horaire_applied: result.summary.taux_horaire_applied,
+              p_devise: result.summary.devise,
+              p_auto_closed: result.summary.auto_closed,
+              p_auto_close_time: result.summary.auto_close_time,
+              p_events_used: result.summary.events_used,
+              p_segments_json: result.summary.segments_json as unknown as null,
+              p_notes: result.summary.notes,
+              p_calculation_version: CALCULATION_VERSION,
+            });
 
-          if (error) errors++;
-          else calculated++;
+          if (error) {
+            // Locked summaries are already skipped above, but handle edge cases
+            if (error.message?.includes('SUMMARY_LOCKED')) {
+              locked++;
+            } else {
+              errors++;
+            }
+          } else {
+            calculated++;
+          }
         } else {
           errors++;
         }
