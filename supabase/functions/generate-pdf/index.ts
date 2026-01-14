@@ -176,6 +176,12 @@ function generateMonthlyExportRows(
   return monthlyRows;
 }
 
+// Generate verification URL (DOCTRINE: Only URL in QR, no sensitive data)
+function generateVerificationUrl(documentCode: string): string {
+  // Production URL for IKOMA POSTE
+  return `https://ikomaposte.lovable.app/verify/${encodeURIComponent(documentCode)}`;
+}
+
 // Generate PDF content for Individual Report (IKP-RAP)
 function generateRAPContent(
   rows: DailyExportRow[],
@@ -197,6 +203,7 @@ function generateRAPContent(
   const lateDays = rows.filter((r) => r.day_status === "RETARD").length;
   const absentDays = rows.filter((r) => r.day_status === "ABSENT").length;
   const anomalyDays = rows.filter((r) => r.day_status === "ANOMALIE").length;
+  const verificationUrl = generateVerificationUrl(metadata.documentCode);
 
   let content = `
 ================================================================================
@@ -258,6 +265,12 @@ Hash source (SHA-256): ${metadata.sourceHash}
 Ce document est généré à partir des données validées et verrouillées.
 Toute modification des données source invaliderait ce hash.
 
+--------------------------------------------------------------------------------
+                           VÉRIFICATION D'AUTHENTICITÉ
+--------------------------------------------------------------------------------
+Pour vérifier l'authenticité de ce document, scannez le QR code ou visitez:
+${verificationUrl}
+
 ================================================================================
                          FIN DU RAPPORT - ${metadata.documentCode}
 ================================================================================
@@ -286,6 +299,7 @@ function generatePTGContent(
   const totalAbsentDays = rows.reduce((sum, r) => sum + r.absent_days, 0);
   const totalAnomalyDays = rows.reduce((sum, r) => sum + r.anomaly_days, 0);
   const workersWithAnomalies = rows.filter((r) => r.has_anomalies).length;
+  const verificationUrl = generateVerificationUrl(metadata.documentCode);
 
   let content = `
 ================================================================================
@@ -338,6 +352,12 @@ Salariés avec anomalies: ${workersWithAnomalies}
 Hash source (SHA-256): ${metadata.sourceHash}
 Ce document est généré à partir des données validées et verrouillées.
 Toute modification des données source invaliderait ce hash.
+
+--------------------------------------------------------------------------------
+                           VÉRIFICATION D'AUTHENTICITÉ
+--------------------------------------------------------------------------------
+Pour vérifier l'authenticité de ce document, scannez le QR code ou visitez:
+${verificationUrl}
 
 ================================================================================
                        FIN DU RAPPORT - ${metadata.documentCode}
