@@ -340,6 +340,54 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_summary_version: {
+        Args: {
+          p_auto_close_time: string
+          p_auto_closed: boolean
+          p_calculation_version: string
+          p_devise: string
+          p_events_used: string[]
+          p_notes: string
+          p_segments_json: Json
+          p_taux_horaire_applied: number
+          p_total_amount: number
+          p_total_pause_minutes: number
+          p_total_work_minutes: number
+          p_work_date: string
+          p_worker_id: string
+        }
+        Returns: {
+          auto_close_time: string | null
+          auto_closed: boolean
+          calculated_at: string
+          calculation_version: string
+          created_at: string
+          devise: string
+          events_used: string[]
+          id: string
+          is_current: boolean
+          locked: boolean
+          locked_at: string | null
+          locked_by: string | null
+          notes: string | null
+          revision: number
+          segments_json: Json | null
+          supersedes_id: string | null
+          taux_horaire_applied: number
+          total_amount: number
+          total_pause_minutes: number
+          total_work_minutes: number
+          updated_at: string
+          work_date: string
+          worker_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "work_summaries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
