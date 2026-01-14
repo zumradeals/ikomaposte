@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   isAdmin: boolean;
   isLoading: boolean;
+  refreshAdminStatus: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -125,6 +126,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  const refreshAdminStatus = async () => {
+    const currentUser = user;
+    if (!currentUser) {
+      setIsAdmin(false);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const next = await checkAdminRole(currentUser.id);
+      setIsAdmin(next);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setIsAdmin(false);
@@ -136,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       isAdmin,
       isLoading,
+      refreshAdminStatus,
       signIn,
       signUp,
       signOut,

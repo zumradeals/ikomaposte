@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { initAdminPin } from '@/lib/admin-auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Page de configuration initiale du PIN admin
@@ -20,6 +21,7 @@ export default function AdminSecuritySetup() {
   const [pinConfigured, setPinConfigured] = useState<boolean | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const navigate = useNavigate();
+  const { refreshAdminStatus } = useAuth();
   
   // PIN initialization form
   const [newPin, setNewPin] = useState('');
@@ -67,10 +69,11 @@ export default function AdminSecuritySetup() {
       setPinConfigured(true);
       setNewPin('');
 
+      // Important: refresh role locally to avoid blank redirects right after bootstrap
+      await refreshAdminStatus();
+
       // Redirect to admin console after successful setup
-      setTimeout(() => {
-        navigate('/admin');
-      }, 1500);
+      navigate('/admin', { replace: true });
     } else {
       toast({
         title: 'Erreur',
