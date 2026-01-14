@@ -52,8 +52,8 @@ export function evaluateDecisionTable(input: DecisionInput): DecisionResult {
   // PRIORITÉ 2: Jour non travaillé (pas d'horaire actif)
   // ============================================
   // Doctrine: Un jour sans horaire actif = ABSENT, pas une anomalie
-  // Forensic trace (OFF_SCHEDULE_EVENTS) stored separately in work_summaries.notes
-  // by the caller (work-calculator), not in DecisionResult
+  // Off-schedule forensic trace (if events exist) must be stored separately
+  // by the caller in work_summaries.notes - NOT in DecisionResult
   
   if (!schedule || !schedule.is_active) {
     return {
@@ -62,7 +62,6 @@ export function evaluateDecisionTable(input: DecisionInput): DecisionResult {
       total_work_minutes: 0,
       late_minutes: 0,
       reason: 'Jour non travaillé (pas d\'horaire prévu)',
-      _offScheduleEventCount: events.length > 0 ? events.length : undefined,
     };
   }
 
