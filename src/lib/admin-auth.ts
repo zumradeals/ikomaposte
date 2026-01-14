@@ -8,9 +8,19 @@ interface VerifyPinResponse {
   ok: boolean;
   reason?: string;
   session_duration_ms?: number;
+  retry_after_ms?: number;
+  attempts_remaining?: number;
 }
 
-export async function verifyAdminPin(pin: string): Promise<{ success: boolean; sessionDurationMs: number; reason?: string }> {
+export interface VerifyResult {
+  success: boolean;
+  sessionDurationMs: number;
+  reason?: string;
+  retryAfterMs?: number;
+  attemptsRemaining?: number;
+}
+
+export async function verifyAdminPin(pin: string): Promise<VerifyResult> {
   const deviceId = getDeviceId();
   
   try {
@@ -43,6 +53,8 @@ export async function verifyAdminPin(pin: string): Promise<{ success: boolean; s
       success: data.ok,
       sessionDurationMs: data.session_duration_ms || 10 * 60 * 1000,
       reason: data.reason,
+      retryAfterMs: data.retry_after_ms,
+      attemptsRemaining: data.attempts_remaining,
     };
   } catch (err) {
     console.error('[Admin Auth] Verification error:', err);
@@ -121,18 +133,13 @@ export function getAdminSessionDuration(): number {
   return 10 * 60 * 1000;
 }
 
-// Log admin logout event
-export async function logAdminLogout(deviceId: string): Promise<void> {
-  try {
-    // This is a best-effort log - we don't block on it
-    await supabase.functions.invoke('verify-admin-pin', {
-      body: {
-        pin: '0000', // Dummy - will fail but we just want to log
-        device_id: deviceId,
-        scope: 'global',
-      },
-    });
-  } catch {
-    // Ignore errors for logout logging
+// Format retry time for display
+export function formatRetryTime(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.ceil((ms % 60000) / 1000);
+  
+  if (minutes > 0) {
+    return `${minutes}min ${seconds}s`;
   }
+  return `${seconds}s`;
 }
