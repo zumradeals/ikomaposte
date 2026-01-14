@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { initAdminPin } from '@/lib/admin-auth';
 import { useAuth } from '@/contexts/AuthContext';
+import { repairSession } from '@/lib/session-repair';
 
 /**
  * Page de configuration initiale du PIN admin
@@ -22,12 +23,13 @@ export default function AdminSecuritySetup() {
   const [checkingStatus, setCheckingStatus] = useState(true);
   const navigate = useNavigate();
   const { refreshAdminStatus } = useAuth();
-  
+
   // PIN initialization form
-  const [newPin, setNewPin] = useState('');
+  const [newPin, setNewPin] = useState('2612');
   const [showNewPin, setShowNewPin] = useState(false);
   const [initLoading, setInitLoading] = useState(false);
-  
+  const [needsReauth, setNeedsReauth] = useState(false);
+
   const { toast } = useToast();
 
   // Check if PIN is configured
@@ -75,9 +77,14 @@ export default function AdminSecuritySetup() {
       // Redirect to admin console after successful setup
       navigate('/admin', { replace: true });
     } else {
+      const shouldRepair = ['INVALID_TOKEN', 'UNAUTHORIZED', 'REAUTH_REQUIRED'].includes(result.reason ?? '');
+      if (shouldRepair) setNeedsReauth(true);
+
       toast({
         title: 'Erreur',
-        description: `Échec: ${result.reason}`,
+        description: shouldRepair
+          ? 'Session invalide. Cliquez sur "Réparer la session" puis reconnectez-vous et réessayez.'
+          : `Échec: ${result.reason}`,
         variant: 'destructive'
       });
     }
@@ -130,6 +137,22 @@ export default function AdminSecuritySetup() {
           ) : (
             // PIN not configured - show initialization form
             <>
+              {needsReauth && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Session invalide détectée</AlertTitle>
+                  <AlertDescription>
+                    Votre connexion semble cassée (token expiré/invalide). Cliquez sur “Réparer la session”, reconnectez-vous,
+                    puis relancez la création du PIN.
+                    <div className="mt-3">
+                      <Button variant="outline" size="sm" onClick={() => repairSession()}>
+                        Réparer la session
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Configuration requise</AlertTitle>
@@ -160,7 +183,10 @@ export default function AdminSecuritySetup() {
                           inputMode="numeric"
                           maxLength={4}
                           value={newPin}
-                          onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                          onChange={(e) => {
+                            setNeedsReauth(false);
+                            setNewPin(e.target.value.replace(/\D/g, ''));
+                          }}
                           placeholder="••••"
                           className="text-center text-2xl tracking-widest font-mono"
                           autoComplete="off"
@@ -176,11 +202,11 @@ export default function AdminSecuritySetup() {
                         </Button>
                       </div>
                     </div>
-                    
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
+
+
+                    <Button
+                      type="submit"
+                      className="w-full"
                       disabled={initLoading || newPin.length !== 4}
                     >
                       {initLoading ? (

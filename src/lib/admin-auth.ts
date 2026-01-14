@@ -68,10 +68,30 @@ export async function verifyAdminPin(pin: string): Promise<VerifyResult> {
 
 export async function rotateAdminPin(currentPin: string, newPin: string): Promise<{ success: boolean; reason?: string }> {
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session?.access_token) {
+    // Ensure we have a fresh token; stale sessions can exist locally but be invalid server-side
+    const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      console.error('[Admin Auth] Session error:', sessionError);
+      return { success: false, reason: 'SESSION_ERROR' };
+    }
+
+    if (!initialSession) {
       return { success: false, reason: 'NOT_AUTHENTICATED' };
+    }
+
+    // Try to refresh session to avoid INVALID_TOKEN from backend
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    const session = refreshError ? initialSession : (refreshData.session ?? initialSession);
+
+    if (refreshError) {
+      console.warn('[Admin Auth] refreshSession failed (will try current token):', refreshError);
+    }
+
+    if (!session?.access_token) {
+      // If we cannot get a usable token, force re-auth
+      await supabase.auth.signOut({ scope: 'local' });
+      return { success: false, reason: 'REAUTH_REQUIRED' };
     }
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -108,17 +128,32 @@ export async function rotateAdminPin(currentPin: string, newPin: string): Promis
 
 export async function initAdminPin(pin: string, force = false): Promise<{ success: boolean; reason?: string }> {
   try {
-    // Force session refresh to ensure we have a valid token
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+    // Important: stale sessions can exist locally (esp. PWA/mobile) while being invalid server-side.
+    // We refresh first to avoid INVALID_TOKEN from the backend function.
+    const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+
     if (sessionError) {
       console.error('[Admin Auth] Session error:', sessionError);
       return { success: false, reason: 'SESSION_ERROR' };
     }
-    
+
+    if (!initialSession) {
+      console.error('[Admin Auth] No session available');
+      return { success: false, reason: 'NOT_AUTHENTICATED' };
+    }
+
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    const session = refreshError ? initialSession : (refreshData.session ?? initialSession);
+
+    if (refreshError) {
+      console.warn('[Admin Auth] refreshSession failed (will try current token):', refreshError);
+    }
+
     if (!session?.access_token) {
       console.error('[Admin Auth] No access token available');
-      return { success: false, reason: 'NOT_AUTHENTICATED' };
+      // Force re-auth to break out of invalid local auth state
+      await supabase.auth.signOut({ scope: 'local' });
+      return { success: false, reason: 'REAUTH_REQUIRED' };
     }
 
     // Use fetch directly to ensure Authorization header is sent
@@ -143,7 +178,7 @@ export async function initAdminPin(pin: string, force = false): Promise<{ succes
     }
 
     const data = await response.json();
-    
+
     return {
       success: data?.ok || false,
       reason: data?.reason,
