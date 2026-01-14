@@ -4,7 +4,6 @@
 // ============================================
 
 import {
-  DayStatusType,
   AnomalyCodeType,
   DecisionInput,
   DecisionResult,
@@ -53,7 +52,8 @@ export function evaluateDecisionTable(input: DecisionInput): DecisionResult {
   // PRIORITÉ 2: Jour non travaillé (pas d'horaire actif)
   // ============================================
   // Doctrine: Un jour sans horaire actif = ABSENT, pas une anomalie
-  // Note: Off-schedule events are logged separately via admin_audit, not in DecisionResult
+  // Forensic trace (OFF_SCHEDULE_EVENTS) stored separately in work_summaries.notes
+  // by the caller (work-calculator), not in DecisionResult
   
   if (!schedule || !schedule.is_active) {
     return {
@@ -61,9 +61,8 @@ export function evaluateDecisionTable(input: DecisionInput): DecisionResult {
       anomaly_code: null,
       total_work_minutes: 0,
       late_minutes: 0,
-      reason: events.length > 0 
-        ? `Jour non travaillé (${events.length} événement(s) hors planning)` 
-        : 'Jour non travaillé (pas d\'horaire prévu)',
+      reason: 'Jour non travaillé (pas d\'horaire prévu)',
+      _offScheduleEventCount: events.length > 0 ? events.length : undefined,
     };
   }
 
