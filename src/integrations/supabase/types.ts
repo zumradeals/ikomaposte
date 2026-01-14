@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       admin_audit: {
         Row: {
+          actor_user_id: string | null
           created_at: string
           device_id: string
           event: string
@@ -25,6 +26,7 @@ export type Database = {
           user_agent: string | null
         }
         Insert: {
+          actor_user_id?: string | null
           created_at?: string
           device_id: string
           event: string
@@ -34,6 +36,7 @@ export type Database = {
           user_agent?: string | null
         }
         Update: {
+          actor_user_id?: string | null
           created_at?: string
           device_id?: string
           event?: string

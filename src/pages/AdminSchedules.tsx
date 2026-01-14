@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,12 +18,13 @@ import {
   useDeactivateSchedule,
   useCopySchedules 
 } from '@/hooks/useWorkSchedules';
-import { WorkSchedule, DAY_OF_WEEK_LABELS, DAY_OF_WEEK_SHORT } from '@/types/business-rules';
+import { WorkSchedule, DAY_OF_WEEK_LABELS } from '@/types/business-rules';
 import { Plus, Edit, Clock, Copy, Calendar } from 'lucide-react';
 import { getDeviceId } from '@/lib/storage';
 
 export default function AdminSchedules() {
   const { isUnlocked } = useAdmin();
+  const { user } = useAuth();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<WorkSchedule | null>(null);
@@ -92,6 +94,7 @@ export default function AdminSchedules() {
       targetCategoryId: copyTargetCategoryId,
       replaceAll: replaceAllSchedules,
       adminDeviceId: adminDeviceId || undefined,
+      actorUserId: user?.id, // Add actor user ID for audit trail
     });
     setShowCopyDialog(false);
     setCopyTargetCategoryId(null);

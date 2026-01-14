@@ -239,11 +239,13 @@ export function useCopySchedules() {
       targetCategoryId,
       replaceAll = false, // Explicit confirmation required for replace
       adminDeviceId,
+      actorUserId, // Required for audit trail
     }: {
       sourceCategoryId: string;
       targetCategoryId: string;
       replaceAll?: boolean;
       adminDeviceId?: string;
+      actorUserId?: string;
     }) => {
       // Fetch source schedules
       const { data: sourceSchedules, error: fetchError } = await supabase
@@ -267,10 +269,11 @@ export function useCopySchedules() {
 
         if (deactivateError) throw deactivateError;
 
-        // Audit log for replaceAll
+        // Audit log for replaceAll (requires actor_user_id for traceability)
         if (adminDeviceId) {
           await supabase.from('admin_audit').insert({
             device_id: adminDeviceId,
+            actor_user_id: actorUserId || null,
             event: 'SCHEDULES_REPLACE_ALL',
             reason: `Replaced all schedules: ${sourceCategoryId} -> ${targetCategoryId}`,
           });
@@ -297,10 +300,11 @@ export function useCopySchedules() {
 
       if (error) throw error;
 
-      // Audit log for copy
+      // Audit log for copy (requires actor_user_id for traceability)
       if (adminDeviceId) {
         await supabase.from('admin_audit').insert({
           device_id: adminDeviceId,
+          actor_user_id: actorUserId || null,
           event: 'SCHEDULES_COPIED',
           reason: `Copied ${data.length} schedules: ${sourceCategoryId} -> ${targetCategoryId}`,
         });
