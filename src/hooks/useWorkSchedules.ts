@@ -1,6 +1,11 @@
 // ============================================
 // Phase 7: Work Schedules Hooks
 // CRUD pour les horaires théoriques par catégorie/jour
+// 
+// SECURITY PATH: Client-side with RLS (admin role required)
+// - All CRUD operations use Supabase client with RLS policies
+// - RLS policy "Admins can manage work schedules" enforces has_role(auth.uid(), 'admin')
+// - No edge functions or service-role needed for this module
 // ============================================
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -220,7 +225,9 @@ export function useDeactivateSchedule() {
 }
 
 /**
- * Copie les horaires d'une catégorie vers une autre
+ * Copie les horaires d'une catégorie vers une autre (per-day upsert, no auto-deactivation)
+ * Doctrine: Uses upsert per day. Does NOT auto-deactivate target schedules.
+ * Security: Requires admin RLS. Audit logged in admin_audit.
  */
 export function useCopySchedules() {
   const queryClient = useQueryClient();
@@ -230,11 +237,15 @@ export function useCopySchedules() {
     mutationFn: async ({
       sourceCategoryId,
       targetCategoryId,
+      replaceAll = false, // Explicit confirmation required for replace
+      adminDeviceId,
     }: {
       sourceCategoryId: string;
       targetCategoryId: string;
+      replaceAll?: boolean;
+      adminDeviceId?: string;
     }) => {
-      // Récupérer les horaires source
+      // Fetch source schedules
       const { data: sourceSchedules, error: fetchError } = await supabase
         .from('work_schedules')
         .select('*')
@@ -246,7 +257,27 @@ export function useCopySchedules() {
         throw new Error('Aucun horaire à copier');
       }
 
-      // Créer les horaires cible
+      // If replaceAll explicitly requested, deactivate target schedules first
+      if (replaceAll) {
+        const { error: deactivateError } = await supabase
+          .from('work_schedules')
+          .update({ is_active: false })
+          .eq('category_id', targetCategoryId)
+          .eq('is_active', true);
+
+        if (deactivateError) throw deactivateError;
+
+        // Audit log for replaceAll
+        if (adminDeviceId) {
+          await supabase.from('admin_audit').insert({
+            device_id: adminDeviceId,
+            event: 'SCHEDULES_REPLACE_ALL',
+            reason: `Replaced all schedules: ${sourceCategoryId} -> ${targetCategoryId}`,
+          });
+        }
+      }
+
+      // Create target schedules (per-day upsert)
       const targetSchedules = sourceSchedules.map(s => ({
         category_id: targetCategoryId,
         day_of_week: s.day_of_week,
@@ -254,6 +285,7 @@ export function useCopySchedules() {
         end_time: s.end_time,
         tolerance_late_minutes: s.tolerance_late_minutes,
         tolerance_early_leave_minutes: s.tolerance_early_leave_minutes,
+        is_active: true,
       }));
 
       const { data, error } = await supabase
@@ -264,13 +296,23 @@ export function useCopySchedules() {
         .select();
 
       if (error) throw error;
+
+      // Audit log for copy
+      if (adminDeviceId) {
+        await supabase.from('admin_audit').insert({
+          device_id: adminDeviceId,
+          event: 'SCHEDULES_COPIED',
+          reason: `Copied ${data.length} schedules: ${sourceCategoryId} -> ${targetCategoryId}`,
+        });
+      }
+
       return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['work-schedules'] });
       toast({
         title: 'Horaires copiés',
-        description: `${data.length} jours copiés`,
+        description: `${data.length} jours copiés (fusion par jour)`,
       });
     },
     onError: (error: Error) => {
