@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, setMonth, setYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 import {
   useExportData,
   usePayrollExport,
@@ -42,6 +41,8 @@ import {
   useDailyExport,
   useMonthlyExport,
 } from '@/hooks/useOfficialExports';
+import { PDFGeneratorCard } from '@/components/admin/PDFGeneratorCard';
+import { DocumentHistoryTable } from '@/components/admin/DocumentHistoryTable';
 
 export default function AdminExports() {
   // Date range state for legacy exports
@@ -365,6 +366,18 @@ export default function AdminExports() {
               </CardContent>
             </Card>
           </div>
+
+          {/* PDF Reports Section */}
+          <Separator className="my-6" />
+          
+          <PDFGeneratorCard
+            periodMonth={format(officialMonth, 'yyyy-MM')}
+            periodLabel={format(officialMonth, 'MMMM yyyy', { locale: fr })}
+            hasValidatedData={(officialData?.stats.totalValidated || 0) > 0}
+          />
+
+          {/* Document History */}
+          <DocumentHistoryTable periodMonth={format(officialMonth, 'yyyy-MM')} />
 
           {officialData?.stats.totalValidated === 0 && (
             <div className="p-4 bg-warning/10 border border-warning/30 rounded-lg flex items-start gap-3">
