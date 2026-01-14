@@ -322,8 +322,12 @@ export type Database = {
           day_status: Database["public"]["Enums"]["day_status"] | null
           devise: string
           events_used: string[]
+          hr_override_checkin: string | null
+          hr_override_checkout: string | null
+          hr_override_reason: string | null
           id: string
           is_current: boolean
+          late_minutes: number | null
           locked: boolean
           locked_at: string | null
           locked_by: string | null
@@ -352,8 +356,12 @@ export type Database = {
           day_status?: Database["public"]["Enums"]["day_status"] | null
           devise?: string
           events_used?: string[]
+          hr_override_checkin?: string | null
+          hr_override_checkout?: string | null
+          hr_override_reason?: string | null
           id?: string
           is_current?: boolean
+          late_minutes?: number | null
           locked?: boolean
           locked_at?: string | null
           locked_by?: string | null
@@ -382,8 +390,12 @@ export type Database = {
           day_status?: Database["public"]["Enums"]["day_status"] | null
           devise?: string
           events_used?: string[]
+          hr_override_checkin?: string | null
+          hr_override_checkout?: string | null
+          hr_override_reason?: string | null
           id?: string
           is_current?: boolean
+          late_minutes?: number | null
           locked?: boolean
           locked_at?: string | null
           locked_by?: string | null
@@ -494,8 +506,12 @@ export type Database = {
           day_status: Database["public"]["Enums"]["day_status"] | null
           devise: string
           events_used: string[]
+          hr_override_checkin: string | null
+          hr_override_checkout: string | null
+          hr_override_reason: string | null
           id: string
           is_current: boolean
+          late_minutes: number | null
           locked: boolean
           locked_at: string | null
           locked_by: string | null
@@ -540,8 +556,12 @@ export type Database = {
           day_status: Database["public"]["Enums"]["day_status"] | null
           devise: string
           events_used: string[]
+          hr_override_checkin: string | null
+          hr_override_checkout: string | null
+          hr_override_reason: string | null
           id: string
           is_current: boolean
+          late_minutes: number | null
           locked: boolean
           locked_at: string | null
           locked_by: string | null

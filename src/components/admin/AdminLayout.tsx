@@ -21,7 +21,8 @@ import {
   AlertTriangle,
   Download,
   Shield,
-  Calendar
+  Calendar,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -34,6 +35,7 @@ const navItems = [
   { path: '/admin', label: 'Tableau de bord', icon: LayoutDashboard },
   { path: '/admin/events', label: 'Flux du jour', icon: Activity },
   { path: '/admin/calculations', label: 'Calculs', icon: Calculator },
+  { path: '/admin/validation', label: 'Validation RH', icon: ClipboardCheck },
   { path: '/admin/anomalies', label: 'Anomalies', icon: AlertTriangle },
   { path: '/admin/exports', label: 'Exports', icon: Download },
   { path: '/admin/devices', label: 'Appareils', icon: Tablet },
