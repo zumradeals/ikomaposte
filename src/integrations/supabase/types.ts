@@ -261,13 +261,62 @@ export type Database = {
           },
         ]
       }
+      work_schedules: {
+        Row: {
+          category_id: string
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean
+          start_time: string
+          tolerance_early_leave_minutes: number
+          tolerance_late_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean
+          start_time: string
+          tolerance_early_leave_minutes?: number
+          tolerance_late_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          start_time?: string
+          tolerance_early_leave_minutes?: number
+          tolerance_late_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_schedules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_summaries: {
         Row: {
+          anomaly_code: Database["public"]["Enums"]["anomaly_code"] | null
           auto_close_time: string | null
           auto_closed: boolean
           calculated_at: string
           calculation_version: string
           created_at: string
+          day_status: Database["public"]["Enums"]["day_status"] | null
           devise: string
           events_used: string[]
           id: string
@@ -284,15 +333,20 @@ export type Database = {
           total_pause_minutes: number
           total_work_minutes: number
           updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: Database["public"]["Enums"]["validation_status"]
           work_date: string
           worker_id: string
         }
         Insert: {
+          anomaly_code?: Database["public"]["Enums"]["anomaly_code"] | null
           auto_close_time?: string | null
           auto_closed?: boolean
           calculated_at?: string
           calculation_version?: string
           created_at?: string
+          day_status?: Database["public"]["Enums"]["day_status"] | null
           devise?: string
           events_used?: string[]
           id?: string
@@ -309,15 +363,20 @@ export type Database = {
           total_pause_minutes?: number
           total_work_minutes?: number
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: Database["public"]["Enums"]["validation_status"]
           work_date: string
           worker_id: string
         }
         Update: {
+          anomaly_code?: Database["public"]["Enums"]["anomaly_code"] | null
           auto_close_time?: string | null
           auto_closed?: boolean
           calculated_at?: string
           calculation_version?: string
           created_at?: string
+          day_status?: Database["public"]["Enums"]["day_status"] | null
           devise?: string
           events_used?: string[]
           id?: string
@@ -334,6 +393,9 @@ export type Database = {
           total_pause_minutes?: number
           total_work_minutes?: number
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: Database["public"]["Enums"]["validation_status"]
           work_date?: string
           worker_id?: string
         }
@@ -420,11 +482,13 @@ export type Database = {
           p_worker_id: string
         }
         Returns: {
+          anomaly_code: Database["public"]["Enums"]["anomaly_code"] | null
           auto_close_time: string | null
           auto_closed: boolean
           calculated_at: string
           calculation_version: string
           created_at: string
+          day_status: Database["public"]["Enums"]["day_status"] | null
           devise: string
           events_used: string[]
           id: string
@@ -441,6 +505,9 @@ export type Database = {
           total_pause_minutes: number
           total_work_minutes: number
           updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: Database["public"]["Enums"]["validation_status"]
           work_date: string
           worker_id: string
         }
@@ -458,8 +525,56 @@ export type Database = {
         }
         Returns: boolean
       }
+      validate_work_summary: {
+        Args: { p_summary_id: string; p_validator_id: string }
+        Returns: {
+          anomaly_code: Database["public"]["Enums"]["anomaly_code"] | null
+          auto_close_time: string | null
+          auto_closed: boolean
+          calculated_at: string
+          calculation_version: string
+          created_at: string
+          day_status: Database["public"]["Enums"]["day_status"] | null
+          devise: string
+          events_used: string[]
+          id: string
+          is_current: boolean
+          locked: boolean
+          locked_at: string | null
+          locked_by: string | null
+          notes: string | null
+          revision: number
+          segments_json: Json | null
+          supersedes_id: string | null
+          taux_horaire_applied: number
+          total_amount: number
+          total_pause_minutes: number
+          total_work_minutes: number
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: Database["public"]["Enums"]["validation_status"]
+          work_date: string
+          worker_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "work_summaries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
+      anomaly_code:
+        | "NO_CHECKIN"
+        | "NO_CHECKOUT"
+        | "DUPLICATE_CHECKIN"
+        | "DUPLICATE_CHECKOUT"
+        | "INVALID_SEQUENCE"
+        | "TIME_OVERLAP"
+        | "FUTURE_EVENT"
+        | "IMPOSSIBLE_DURATION"
       anomaly_type:
         | "missing_end"
         | "missing_take"
@@ -478,6 +593,8 @@ export type Database = {
         | "mark_absent"
         | "mark_complete"
         | "other"
+      day_status: "PRESENT" | "RETARD" | "ABSENT" | "ANOMALIE"
+      validation_status: "DRAFT" | "VALIDATED"
       work_event_type: "TAKE" | "PAUSE" | "RESUME" | "END"
     }
     CompositeTypes: {
@@ -606,6 +723,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      anomaly_code: [
+        "NO_CHECKIN",
+        "NO_CHECKOUT",
+        "DUPLICATE_CHECKIN",
+        "DUPLICATE_CHECKOUT",
+        "INVALID_SEQUENCE",
+        "TIME_OVERLAP",
+        "FUTURE_EVENT",
+        "IMPOSSIBLE_DURATION",
+      ],
       anomaly_type: [
         "missing_end",
         "missing_take",
@@ -626,6 +753,8 @@ export const Constants = {
         "mark_complete",
         "other",
       ],
+      day_status: ["PRESENT", "RETARD", "ABSENT", "ANOMALIE"],
+      validation_status: ["DRAFT", "VALIDATED"],
       work_event_type: ["TAKE", "PAUSE", "RESUME", "END"],
     },
   },
