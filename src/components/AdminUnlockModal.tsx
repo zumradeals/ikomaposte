@@ -135,7 +135,7 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
           {error && (
             <div className="flex items-center justify-center gap-2 text-destructive animate-fade-in mb-4">
               <AlertCircle className="w-5 h-5" />
-              <span className="text-lg">Code incorrect</span>
+              <span className="text-lg">Code incorrect ou erreur serveur</span>
             </div>
           )}
           

@@ -18,6 +18,7 @@ import AdminDiagnostic from "./pages/AdminDiagnostic";
 import AdminSessionDiagnostic from "./pages/AdminSessionDiagnostic";
 import AdminAnomalies from "./pages/AdminAnomalies";
 import AdminExports from "./pages/AdminExports";
+import AdminSecurity from "./pages/AdminSecurity";
 
 const queryClient = new QueryClient();
 
@@ -80,7 +81,7 @@ const App = () => {
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
                 <Route path="/admin/diagnostic" element={<AdminDiagnostic />} />
-
+                <Route path="/admin/security" element={<AdminSecurity />} />
                 {/* Session diagnostics (PIN only, no login required) */}
                 <Route path="/admin/session" element={<AdminSessionDiagnostic />} />
                 

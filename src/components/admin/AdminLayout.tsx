@@ -19,7 +19,8 @@ import {
   Tablet,
   Stethoscope,
   AlertTriangle,
-  Download
+  Download,
+  Shield
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -37,6 +38,7 @@ const navItems = [
   { path: '/admin/devices', label: 'Appareils', icon: Tablet },
   { path: '/admin/categories', label: 'Catégories', icon: Tags },
   { path: '/admin/workers', label: 'Travailleurs', icon: Users },
+  { path: '/admin/security', label: 'Sécurité', icon: Shield },
   { path: '/admin/diagnostic', label: 'Diagnostic', icon: Stethoscope },
 ];
 
