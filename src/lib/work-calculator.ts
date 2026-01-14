@@ -1,6 +1,14 @@
-// Phase 4: Work Time Calculator
-// Build #1: Now integrates correction_events into calculations
-// Transforms TRUSTED events + corrections into work segments and calculates durations/amounts
+// ============================================
+// Phase 7: Work Time Calculator
+// Règles métier IKOMA - Calculateur officiel
+// ============================================
+// 
+// RÈGLES IMPÉRATIVES:
+// - Unité interne: MINUTE (entier)
+// - Pause: payée, exclue des calculs officiels (log interne uniquement)
+// - Statuts: PRESENT, RETARD, ABSENT, ANOMALIE (calculés automatiquement)
+// - Les anomalies sont exclues des totaux
+//
 
 import { WorkEvent, WorkEventType } from '@/types/work-events';
 import { CorrectionEvent } from '@/types/corrections';
@@ -16,6 +24,12 @@ import {
   formatCorrectionsNotes,
   EffectiveEvent 
 } from './correction-applier';
+import {
+  evaluateDecisionTable,
+  extractCheckinCheckout,
+  getDayOfWeek,
+} from './decision-table';
+import { WorkSchedule, DayStatusType, AnomalyCodeType } from '@/types/business-rules';
 
 interface WorkerCategory {
   taux_horaire: number;
@@ -26,6 +40,15 @@ interface CalculationOptions {
   autoCloseHour?: number;
   autoCloseMinute?: number;
   workDate: Date;
+  /** Horaire théorique pour ce jour (Phase 7) */
+  schedule?: WorkSchedule | null;
+}
+
+// Résultat étendu Phase 7
+export interface CalculationResultPhase7 extends CalculationResult {
+  day_status?: DayStatusType;
+  anomaly_code?: AnomalyCodeType | null;
+  late_minutes?: number;
 }
 
 /**
@@ -168,14 +191,19 @@ export function calculateWorkSegments(
 
 /**
  * Calculate total work and pause minutes from segments
+ * 
+ * PHASE 7: La pause est payée mais exclue des calculs officiels.
+ * total_pause_minutes est conservé uniquement comme log interne.
  */
 export function calculateTotals(segments: WorkSegment[]): {
   totalWorkMinutes: number;
-  totalPauseMinutes: number;
+  totalPauseMinutes: number; // LOG INTERNE UNIQUEMENT - exclu des exports métier
 } {
+  // Seuls les segments de travail comptent
   const totalWorkMinutes = segments.reduce((sum, seg) => sum + seg.duration_minutes, 0);
   
-  // Calculate pause time (gaps between consecutive segments on same day)
+  // Pause = log interne uniquement (exclu des calculs officiels)
+  // Conservé pour audit mais jamais dans les exports métier
   let totalPauseMinutes = 0;
   for (let i = 1; i < segments.length; i++) {
     const prevEnd = new Date(segments[i - 1].end_at);
@@ -202,7 +230,11 @@ export function calculateAmount(
 
 /**
  * Full calculation for a worker's day
- * BUILD #1: Now applies corrections before calculating
+ * 
+ * PHASE 7: Intègre la table de décision pour calcul automatique
+ * - day_status: PRESENT, RETARD, ABSENT, ANOMALIE
+ * - anomaly_code: code fermé si anomalie
+ * - Les anomalies sont exclues automatiquement des totaux
  */
 export function calculateWorkerDay(
   events: WorkEvent[],
@@ -210,13 +242,14 @@ export function calculateWorkerDay(
   category: WorkerCategory,
   workDate: Date,
   autoCloseHour?: number,
-  autoCloseMinute?: number
-): CalculationResult {
+  autoCloseMinute?: number,
+  schedule?: WorkSchedule | null
+): CalculationResultPhase7 {
   const warnings: string[] = [];
   const workDateStr = workDate.toISOString().split('T')[0];
 
   try {
-    // BUILD #1: Apply corrections to get effective events
+    // Apply corrections to get effective events
     const { effectiveEvents, appliedCorrections, notes: correctionNotes } = applyCorrections(
       events,
       corrections,
@@ -228,7 +261,7 @@ export function calculateWorkerDay(
       warnings.push(...correctionNotes);
     }
 
-    // Check if day was marked absent
+    // Check if day was marked absent via correction
     if (effectiveEvents.length === 0 && corrections.some(c => c.correction_action === 'mark_absent')) {
       return {
         success: true,
@@ -236,7 +269,7 @@ export function calculateWorkerDay(
           worker_id: events[0]?.worker_id || '',
           work_date: workDateStr,
           total_work_minutes: 0,
-          total_pause_minutes: 0,
+          total_pause_minutes: 0, // Log interne
           total_amount: 0,
           devise: category.devise,
           taux_horaire_applied: category.taux_horaire,
@@ -249,25 +282,80 @@ export function calculateWorkerDay(
         },
         warnings: ['Journée marquée absente par correction'],
         correctionsApplied: appliedCorrections.length,
+        day_status: 'ABSENT',
+        anomaly_code: null,
+        late_minutes: 0,
       };
     }
 
-    // Filter only trusted events (should all be trusted after corrections)
+    // Filter only trusted events
     const trustedEvents = effectiveEvents.filter(e => e.trust_status === 'trusted');
     
+    // Extract checkin/checkout for decision table
+    const { checkin, checkout } = extractCheckinCheckout(
+      trustedEvents.map(e => ({
+        id: e.id,
+        event_type: e.event_type,
+        occurred_at: e.occurred_at,
+      }))
+    );
+
+    // PHASE 7: Évaluer la table de décision
+    const decisionResult = evaluateDecisionTable({
+      actual_checkin: checkin,
+      actual_checkout: checkout,
+      schedule: schedule || null,
+      events: trustedEvents.map(e => ({
+        id: e.id,
+        event_type: e.event_type,
+        occurred_at: e.occurred_at,
+      })),
+    });
+
+    // Si ANOMALIE détectée par la table de décision, créer un summary minimal
+    if (decisionResult.day_status === 'ANOMALIE') {
+      return {
+        success: true, // Success technique mais données anomaliques
+        summary: {
+          worker_id: trustedEvents[0]?.worker_id || events[0]?.worker_id || '',
+          work_date: workDateStr,
+          total_work_minutes: 0, // ANOMALIE = exclu des totaux
+          total_pause_minutes: 0,
+          total_amount: 0, // Pas de paiement sur anomalie
+          devise: category.devise,
+          taux_horaire_applied: category.taux_horaire,
+          auto_closed: false,
+          auto_close_time: null,
+          calculation_version: CALCULATION_VERSION,
+          events_used: trustedEvents.filter(e => !('is_virtual' in e && e.is_virtual)).map(e => e.id),
+          segments_json: [],
+          notes: `ANOMALIE: ${decisionResult.reason}`,
+        },
+        warnings: [decisionResult.reason],
+        correctionsApplied: appliedCorrections.length,
+        day_status: 'ANOMALIE',
+        anomaly_code: decisionResult.anomaly_code,
+        late_minutes: 0,
+      };
+    }
+
+    // Si pas d'événements trusted (et pas marqué absent)
     if (trustedEvents.length === 0) {
       return {
         success: false,
         error: 'Aucun événement vérifié pour cette journée',
         warnings: ['Tous les événements sont non vérifiés'],
         correctionsApplied: appliedCorrections.length,
+        day_status: 'ANOMALIE',
+        anomaly_code: 'NO_CHECKIN',
+        late_minutes: 0,
       };
     }
 
-    // Calculate segments
+    // Calculate segments normalement
     const { segments, warnings: segmentWarnings, autoCloseApplied } = calculateWorkSegments(
       trustedEvents,
-      { workDate, autoCloseHour, autoCloseMinute }
+      { workDate, autoCloseHour, autoCloseMinute, schedule }
     );
 
     warnings.push(...segmentWarnings);
@@ -278,17 +366,25 @@ export function calculateWorkerDay(
         error: 'Aucun segment de travail valide',
         warnings,
         correctionsApplied: appliedCorrections.length,
+        day_status: 'ANOMALIE',
+        anomaly_code: 'INVALID_SEQUENCE',
+        late_minutes: 0,
       };
     }
 
-    // Calculate totals
+    // Calculate totals (pause = log interne uniquement)
     const { totalWorkMinutes, totalPauseMinutes } = calculateTotals(segments);
+    
+    // PHASE 7: Montant calculé UNIQUEMENT si PRESENT ou RETARD
     const { amount, devise } = calculateAmount(totalWorkMinutes, category);
 
     // Build notes with correction info
     const allNotes: string[] = [];
     if (appliedCorrections.length > 0) {
       allNotes.push(formatCorrectionsNotes(appliedCorrections));
+    }
+    if (decisionResult.late_minutes > 0) {
+      allNotes.push(`Retard: ${decisionResult.late_minutes} minutes`);
     }
     if (warnings.length > 0) {
       allNotes.push(...warnings);
@@ -304,7 +400,7 @@ export function calculateWorkerDay(
       worker_id: trustedEvents[0].worker_id,
       work_date: workDateStr,
       total_work_minutes: totalWorkMinutes,
-      total_pause_minutes: totalPauseMinutes,
+      total_pause_minutes: totalPauseMinutes, // Log interne uniquement
       total_amount: amount,
       devise,
       taux_horaire_applied: category.taux_horaire,
@@ -323,6 +419,9 @@ export function calculateWorkerDay(
       summary,
       warnings,
       correctionsApplied: appliedCorrections.length,
+      day_status: decisionResult.day_status,
+      anomaly_code: null,
+      late_minutes: decisionResult.late_minutes,
     };
   } catch (error) {
     return {
@@ -330,6 +429,9 @@ export function calculateWorkerDay(
       error: error instanceof Error ? error.message : 'Erreur de calcul',
       warnings,
       correctionsApplied: 0,
+      day_status: 'ANOMALIE',
+      anomaly_code: null,
+      late_minutes: 0,
     };
   }
 }

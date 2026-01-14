@@ -69,7 +69,10 @@ export const DEFAULT_AUTO_CLOSE_HOUR = 18;
 export const DEFAULT_AUTO_CLOSE_MINUTE = 0;
 
 // Calculation version - increment when engine logic changes
-export const CALCULATION_VERSION = 'v1.1';
+// v1.0: Initial version
+// v1.1: Added correction support
+// v2.0: Phase 7 - Decision table, day_status, pauses excluded from official totals
+export const CALCULATION_VERSION = 'v2.0';
 
 // Lock rejection error
 export class SummaryLockError extends Error {
