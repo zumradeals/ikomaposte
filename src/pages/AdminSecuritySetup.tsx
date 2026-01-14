@@ -23,7 +23,6 @@ export default function AdminSecuritySetup() {
   
   // PIN initialization form
   const [newPin, setNewPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
   const [showNewPin, setShowNewPin] = useState(false);
   const [initLoading, setInitLoading] = useState(false);
   
@@ -40,15 +39,12 @@ export default function AdminSecuritySetup() {
       const { data } = await supabase.functions.invoke('verify-admin-pin', {
         body: { pin: '0000', device_id: 'check', scope: 'global' },
       });
-      
-      if (data?.reason === 'NO_PIN_CONFIGURED') {
-        setPinConfigured(false);
-      } else {
-        setPinConfigured(true);
-      }
+
+      setPinConfigured(data?.reason !== 'NO_PIN_CONFIGURED');
     } catch (err) {
       console.error('Failed to check PIN status:', err);
-      setPinConfigured(false);
+      // If the status can't be determined, default to "configured" to avoid showing init UI to non-admins.
+      setPinConfigured(true);
     } finally {
       setCheckingStatus(false);
     }
@@ -56,36 +52,30 @@ export default function AdminSecuritySetup() {
 
   const handleInitPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
       toast({ title: 'Erreur', description: 'Le PIN doit être 4 chiffres', variant: 'destructive' });
       return;
     }
-    
-    if (newPin !== confirmPin) {
-      toast({ title: 'Erreur', description: 'Les PINs ne correspondent pas', variant: 'destructive' });
-      return;
-    }
-    
+
     setInitLoading(true);
     const result = await initAdminPin(newPin, true);
     setInitLoading(false);
-    
+
     if (result.success) {
       toast({ title: 'Succès', description: 'PIN administrateur initialisé ! Vous pouvez maintenant accéder à la console.' });
       setPinConfigured(true);
       setNewPin('');
-      setConfirmPin('');
-      
+
       // Redirect to admin console after successful setup
       setTimeout(() => {
         navigate('/admin');
       }, 1500);
     } else {
-      toast({ 
-        title: 'Erreur', 
-        description: `Échec: ${result.reason}`, 
-        variant: 'destructive' 
+      toast({
+        title: 'Erreur',
+        description: `Échec: ${result.reason}`,
+        variant: 'destructive'
       });
     }
   };
@@ -114,7 +104,7 @@ export default function AdminSecuritySetup() {
             // PIN already configured - redirect to main admin
             <Card>
               <CardHeader className="text-center">
-                <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                <CheckCircle className="w-12 h-12 text-success mx-auto mb-2" />
                 <CardTitle>PIN déjà configuré</CardTitle>
                 <CardDescription>
                   Le PIN administrateur est actif. Vous pouvez accéder à la console admin.
@@ -208,7 +198,7 @@ export default function AdminSecuritySetup() {
                     <Button 
                       type="submit" 
                       className="w-full" 
-                      disabled={initLoading || newPin.length !== 4 || newPin !== confirmPin}
+                      disabled={initLoading || newPin.length !== 4}
                     >
                       {initLoading ? (
                         <>

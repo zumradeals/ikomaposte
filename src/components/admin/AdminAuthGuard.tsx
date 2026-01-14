@@ -1,9 +1,9 @@
 import { ReactNode, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminLoginForm } from './AdminLoginForm';
-import { ShieldAlert, Loader2, LogOut, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { repairSession } from '@/lib/session-repair';
 
 interface AdminAuthGuardProps {
@@ -11,7 +11,8 @@ interface AdminAuthGuardProps {
 }
 
 export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
-  const { user, isAdmin, isLoading, signOut } = useAuth();
+  const { user, isAdmin, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [showRepairButton, setShowRepairButton] = useState(false);
 
   // Show repair button after 4 seconds of loading
@@ -58,64 +59,16 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
     return <AdminLoginForm />;
   }
 
-  // Logged in but not admin - show access denied
+  // Logged in but not admin - silently return to kiosk (keeps security, avoids disruptive blocking screen)
   if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto p-4 rounded-full bg-destructive/10 w-fit mb-4">
-              <ShieldAlert className="w-8 h-8 text-destructive" />
-            </div>
-            <CardTitle className="text-2xl">Accès refusé</CardTitle>
-            <CardDescription>
-              Votre compte n'a pas les droits administrateur.
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent className="space-y-4">
-            <div className="p-4 rounded-lg bg-muted text-center">
-              <p className="text-sm text-muted-foreground mb-2">Connecté en tant que:</p>
-              <p className="font-medium">{user.email}</p>
-            </div>
-            
-            <p className="text-sm text-muted-foreground text-center">
-              Contactez un administrateur pour obtenir les droits nécessaires, puis reconnectez-vous.
-            </p>
-            
-            <div className="flex flex-col gap-2">
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                onClick={() => signOut()}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Se déconnecter
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  window.location.href = '/admin/session';
-                }}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Diagnostic session
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="w-full text-muted-foreground" 
-                onClick={() => repairSession()}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Réparer la session (Chrome)
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-3">
+          <p className="text-muted-foreground">Accès administrateur requis.</p>
+          <Button variant="outline" onClick={() => navigate('/', { replace: true })}>
+            Retour au scan
+          </Button>
+        </div>
       </div>
     );
   }
