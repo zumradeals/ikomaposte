@@ -187,6 +187,99 @@ export type Database = {
         }
         Relationships: []
       }
+      document_sequences: {
+        Row: {
+          current_sequence: number
+          document_type: Database["public"]["Enums"]["document_type"]
+          id: string
+          period_month: string
+          updated_at: string
+        }
+        Insert: {
+          current_sequence?: number
+          document_type: Database["public"]["Enums"]["document_type"]
+          id?: string
+          period_month: string
+          updated_at?: string
+        }
+        Update: {
+          current_sequence?: number
+          document_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          period_month?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          document_code: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          export_version: string
+          file_size_bytes: number | null
+          filters_json: Json
+          generated_at: string
+          generated_by: string
+          id: string
+          period_month: string
+          source_hash: string
+          source_row_count: number
+          storage_path: string
+          worker_id: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          document_code: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          export_version?: string
+          file_size_bytes?: number | null
+          filters_json?: Json
+          generated_at?: string
+          generated_by: string
+          id?: string
+          period_month: string
+          source_hash: string
+          source_row_count?: number
+          storage_path: string
+          worker_id?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          document_code?: string
+          document_type?: Database["public"]["Enums"]["document_type"]
+          export_version?: string
+          file_size_bytes?: number | null
+          filters_json?: Json
+          generated_at?: string
+          generated_by?: string
+          id?: string
+          period_month?: string
+          source_hash?: string
+          source_row_count?: number
+          storage_path?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -537,6 +630,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_next_document_sequence: {
+        Args: {
+          p_document_type: Database["public"]["Enums"]["document_type"]
+          p_period_month: string
+        }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -621,6 +721,7 @@ export type Database = {
         | "mark_complete"
         | "other"
       day_status: "PRESENT" | "RETARD" | "ABSENT" | "ANOMALIE"
+      document_type: "RAP" | "PTG"
       validation_status: "DRAFT" | "VALIDATED"
       work_event_type: "TAKE" | "PAUSE" | "RESUME" | "END"
     }
@@ -781,6 +882,7 @@ export const Constants = {
         "other",
       ],
       day_status: ["PRESENT", "RETARD", "ABSENT", "ANOMALIE"],
+      document_type: ["RAP", "PTG"],
       validation_status: ["DRAFT", "VALIDATED"],
       work_event_type: ["TAKE", "PAUSE", "RESUME", "END"],
     },
