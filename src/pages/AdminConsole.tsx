@@ -278,27 +278,34 @@ function AdminConsoleLocked() {
                 <Shield className="h-4 w-4" />
                 <AlertTitle>PIN non configuré</AlertTitle>
                 <AlertDescription>
-                  Aucun PIN n'est encore défini. Allez dans « Sécurité » pour initialiser le premier PIN.
+                  Aucun PIN n'est encore défini. Configurez-le pour sécuriser l'accès.
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="flex flex-col gap-2">
-              {!showInitPin && (
-                <Button className="w-full" onClick={() => setUnlockOpen(true)}>
-                  <KeyRound className="h-4 w-4 mr-2" />
-                  Entrer le PIN
+              {showInitPin ? (
+                <Button className="w-full" onClick={() => navigate('/admin/security/setup')}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Configurer le PIN administrateur
                 </Button>
+              ) : (
+                <>
+                  <Button className="w-full" onClick={() => setUnlockOpen(true)}>
+                    <KeyRound className="h-4 w-4 mr-2" />
+                    Entrer le PIN
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate('/admin/security/setup')}
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Sécurité (changer le PIN)
+                  </Button>
+                </>
               )}
-
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate('/admin/security')}
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Sécurité (initialiser / changer le PIN)
-              </Button>
 
               <Button variant="ghost" className="w-full" onClick={() => navigate('/')}
               >
