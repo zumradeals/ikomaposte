@@ -1,5 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import bcrypt from "https://esm.sh/bcryptjs@2.4.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,18 +46,18 @@ Deno.serve(async (req: Request) => {
     // Create service client to verify user and check admin role
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from token
+    // Get user from token (signing-keys compatible)
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await serviceClient.auth.getUser(token);
+    const { data: claimsData, error: claimsError } = await serviceClient.auth.getClaims(token);
 
-    if (userError || !user) {
+    const userId = claimsData?.claims?.sub;
+
+    if (claimsError || !userId) {
       return new Response(
         JSON.stringify({ ok: false, reason: "INVALID_TOKEN" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const userId = user.id;
 
     // Check if user is admin
     const { data: roleData } = await serviceClient
