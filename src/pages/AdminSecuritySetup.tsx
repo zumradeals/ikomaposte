@@ -174,26 +174,6 @@ export default function AdminSecuritySetup() {
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPin">Confirmer le PIN</Label>
-                      <Input
-                        id="confirmPin"
-                        type="password"
-                        inputMode="numeric"
-                        maxLength={4}
-                        value={confirmPin}
-                        onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-                        placeholder="••••"
-                        className="text-center text-2xl tracking-widest font-mono"
-                        autoComplete="off"
-                      />
-                      {confirmPin && confirmPin !== newPin && (
-                        <p className="text-sm text-destructive">Les PINs ne correspondent pas</p>
-                      )}
-                      {confirmPin && confirmPin === newPin && newPin.length === 4 && (
-                        <p className="text-sm text-green-600">✓ Les PINs correspondent</p>
-                      )}
-                    </div>
                     
                     <Button 
                       type="submit" 
