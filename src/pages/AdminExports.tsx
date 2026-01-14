@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Download, 
   FileSpreadsheet, 
@@ -21,9 +22,11 @@ import {
   Users,
   Clock,
   Activity,
-  Info
+  Info,
+  Shield,
+  FileCheck,
 } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, setMonth, setYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -34,13 +37,21 @@ import {
   useDisputeExport,
 } from '@/hooks/useExports';
 import { useWorkers } from '@/hooks/useWorkers';
+import {
+  useValidatedSummariesForMonth,
+  useDailyExport,
+  useMonthlyExport,
+} from '@/hooks/useOfficialExports';
 
 export default function AdminExports() {
-  // Date range state
+  // Date range state for legacy exports
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
+
+  // Official export month state
+  const [officialMonth, setOfficialMonth] = useState<Date>(new Date());
 
   // Dispute export state
   const [selectedWorker, setSelectedWorker] = useState<string>('');
@@ -49,12 +60,19 @@ export default function AdminExports() {
   // Fetch data
   const { data: exportData, isLoading } = useExportData(dateRange.from, dateRange.to);
   const { data: workers } = useWorkers();
+  
+  // Official export data
+  const { data: officialData, isLoading: officialLoading } = useValidatedSummariesForMonth(officialMonth);
 
   // Export mutations
   const payrollExport = usePayrollExport();
   const auditExport = useAuditExport();
   const syncExport = useSyncExport();
   const disputeExport = useDisputeExport();
+  
+  // Official export mutations
+  const dailyExport = useDailyExport();
+  const monthlyExport = useMonthlyExport();
 
   // Derived data
   const stats = exportData?.stats;
@@ -141,20 +159,216 @@ export default function AdminExports() {
     });
   };
 
+  // Official export handlers
+  const handleOfficialDailyExport = () => {
+    if (!officialData) return;
+    dailyExport.mutate({
+      summaries: officialData.summaries,
+      periodMonth: officialData.periodMonth,
+    });
+  };
+
+  const handleOfficialMonthlyExport = () => {
+    if (!officialData) return;
+    monthlyExport.mutate({
+      summaries: officialData.summaries,
+      periodMonth: officialData.periodMonth,
+    });
+  };
+
+  // Month selector options
+  const monthOptions = useMemo(() => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = setMonth(setYear(new Date(), now.getFullYear()), now.getMonth() - i);
+      options.push({
+        value: format(date, 'yyyy-MM'),
+        label: format(date, 'MMMM yyyy', { locale: fr }),
+        date,
+      });
+    }
+    return options;
+  }, []);
+
   return (
     <AdminLayout title="Exports">
-      <div className="space-y-6">
-        {/* Date Range Selector */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              Période d'export
-            </CardTitle>
-            <CardDescription>
-              Sélectionnez la période pour les exports de données
-            </CardDescription>
-          </CardHeader>
+      <Tabs defaultValue="official" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="official" className="gap-2">
+            <Shield className="h-4 w-4" />
+            Exports Officiels
+          </TabsTrigger>
+          <TabsTrigger value="legacy" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Exports Techniques
+          </TabsTrigger>
+        </TabsList>
+
+        {/* OFFICIAL EXPORTS TAB */}
+        <TabsContent value="official" className="space-y-6">
+          {/* Month Selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                Exports Officiels IKOMA
+              </CardTitle>
+              <CardDescription>
+                Exports conformes à la doctrine: données VALIDÉES uniquement, jamais recalculées
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium">Mois:</label>
+                <Select
+                  value={format(officialMonth, 'yyyy-MM')}
+                  onValueChange={(val) => {
+                    const opt = monthOptions.find(o => o.value === val);
+                    if (opt) setOfficialMonth(opt.date);
+                  }}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthOptions.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Stats for official exports */}
+              {officialLoading ? (
+                <Skeleton className="h-20" />
+              ) : officialData ? (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="bg-muted rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold">{officialData.stats.totalValidated}</p>
+                    <p className="text-xs text-muted-foreground">Jours validés</p>
+                  </div>
+                  <div className="bg-success/10 rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold text-success">{officialData.stats.byStatus.present}</p>
+                    <p className="text-xs text-muted-foreground">Présent</p>
+                  </div>
+                  <div className="bg-warning/10 rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold text-warning">{officialData.stats.byStatus.retard}</p>
+                    <p className="text-xs text-muted-foreground">Retard</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold">{officialData.stats.byStatus.absent}</p>
+                    <p className="text-xs text-muted-foreground">Absent</p>
+                  </div>
+                  <div className="bg-destructive/10 rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold text-destructive">{officialData.stats.byStatus.anomalie}</p>
+                    <p className="text-xs text-muted-foreground">Anomalie</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">Aucune donnée validée pour ce mois</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Official Export Cards */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Daily Export */}
+            <Card className="border-primary/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileCheck className="h-5 w-5 text-primary" />
+                  Export Journalier (Source)
+                </CardTitle>
+                <CardDescription>
+                  Une ligne par travailleur par jour - Source de vérité
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-sm space-y-1 bg-muted/50 p-3 rounded">
+                  <p><strong>Format:</strong> IKP-DAILY-YYYYMM-SEQ.csv</p>
+                  <p><strong>Contenu:</strong> VALIDATED + is_current uniquement</p>
+                  <p><strong>Règles:</strong> Minutes, pas de pause, pas de forensic</p>
+                </div>
+                <Button 
+                  onClick={handleOfficialDailyExport}
+                  disabled={officialLoading || !officialData?.stats.totalValidated || dailyExport.isPending}
+                  className="w-full gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Télécharger Journalier
+                  {officialData && (
+                    <Badge variant="secondary" className="ml-2">
+                      {officialData.stats.totalValidated} lignes
+                    </Badge>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Monthly Export */}
+            <Card className="border-primary/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-primary" />
+                  Export Mensuel (Agrégé)
+                </CardTitle>
+                <CardDescription>
+                  Une ligne par travailleur par mois - Agrégation validée
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-sm space-y-1 bg-muted/50 p-3 rounded">
+                  <p><strong>Format:</strong> IKP-MONTH-YYYYMM-SEQ.csv</p>
+                  <p><strong>Contenu:</strong> Somme des jours PRESENT+RETARD</p>
+                  <p><strong>Compteurs:</strong> worked_days, late_days, absent_days, anomaly_days</p>
+                </div>
+                <Button 
+                  onClick={handleOfficialMonthlyExport}
+                  disabled={officialLoading || !officialData?.stats.totalValidated || monthlyExport.isPending}
+                  className="w-full gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Télécharger Mensuel
+                  {officialData && (
+                    <Badge variant="secondary" className="ml-2">
+                      {officialData.stats.uniqueWorkers} travailleurs
+                    </Badge>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {officialData?.stats.totalValidated === 0 && (
+            <div className="p-4 bg-warning/10 border border-warning/30 rounded-lg flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-warning">Aucun résumé validé</p>
+                <p className="text-sm text-muted-foreground">
+                  Les exports officiels ne contiennent que les données avec validation_status = VALIDATED.
+                  Validez d'abord les résumés dans la console Calculs.
+                </p>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* LEGACY/TECHNICAL EXPORTS TAB */}
+        <TabsContent value="legacy" className="space-y-6">
+          {/* Date Range Selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5" />
+                Période d'export
+              </CardTitle>
+              <CardDescription>
+                Sélectionnez la période pour les exports de données
+              </CardDescription>
+            </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={() => handlePreset('today')}>
@@ -423,7 +637,8 @@ export default function AdminExports() {
             </CardContent>
           </Card>
         </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </AdminLayout>
   );
 }

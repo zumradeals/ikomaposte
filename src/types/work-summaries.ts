@@ -39,6 +39,13 @@ export interface WorkSummary {
   locked: boolean;
   locked_by: string | null;
   locked_at: string | null;
+  // Phase 7: Decision table fields
+  day_status: 'PRESENT' | 'RETARD' | 'ABSENT' | 'ANOMALIE' | null;
+  anomaly_code: string | null;
+  // Phase 7: Validation fields
+  validation_status: 'DRAFT' | 'VALIDATED';
+  validated_by: string | null;
+  validated_at: string | null;
 }
 
 export interface WorkSummaryWithWorker extends WorkSummary {
