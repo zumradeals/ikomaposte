@@ -223,9 +223,18 @@ export type Database = {
           generated_at: string
           generated_by: string
           id: string
+          pdf_hash: string | null
           period_month: string
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          seal_block_json: Json | null
+          signature_level: Database["public"]["Enums"]["signature_level"] | null
+          signed_at: string | null
+          signed_by: string | null
           source_hash: string
           source_row_count: number
+          status: Database["public"]["Enums"]["document_status"]
           storage_path: string
           worker_id: string | null
         }
@@ -240,9 +249,20 @@ export type Database = {
           generated_at?: string
           generated_by: string
           id?: string
+          pdf_hash?: string | null
           period_month: string
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          seal_block_json?: Json | null
+          signature_level?:
+            | Database["public"]["Enums"]["signature_level"]
+            | null
+          signed_at?: string | null
+          signed_by?: string | null
           source_hash: string
           source_row_count?: number
+          status?: Database["public"]["Enums"]["document_status"]
           storage_path: string
           worker_id?: string | null
         }
@@ -257,9 +277,20 @@ export type Database = {
           generated_at?: string
           generated_by?: string
           id?: string
+          pdf_hash?: string | null
           period_month?: string
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          seal_block_json?: Json | null
+          signature_level?:
+            | Database["public"]["Enums"]["signature_level"]
+            | null
+          signed_at?: string | null
+          signed_by?: string | null
           source_hash?: string
           source_row_count?: number
+          status?: Database["public"]["Enums"]["document_status"]
           storage_path?: string
           worker_id?: string | null
         }
@@ -573,6 +604,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_modify_document: { Args: { p_document_id: string }; Returns: boolean }
       create_summary_version: {
         Args: {
           p_auto_close_time: string
@@ -648,6 +680,81 @@ export type Database = {
         Args: { p_summary_ids: string[] }
         Returns: Json
       }
+      revoke_document: {
+        Args: { p_document_id: string; p_reason: string }
+        Returns: {
+          category_id: string | null
+          created_at: string
+          document_code: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          export_version: string
+          file_size_bytes: number | null
+          filters_json: Json
+          generated_at: string
+          generated_by: string
+          id: string
+          pdf_hash: string | null
+          period_month: string
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          seal_block_json: Json | null
+          signature_level: Database["public"]["Enums"]["signature_level"] | null
+          signed_at: string | null
+          signed_by: string | null
+          source_hash: string
+          source_row_count: number
+          status: Database["public"]["Enums"]["document_status"]
+          storage_path: string
+          worker_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      sign_document: {
+        Args: {
+          p_document_id: string
+          p_pdf_hash: string
+          p_seal_block: Json
+          p_signature_level: Database["public"]["Enums"]["signature_level"]
+        }
+        Returns: {
+          category_id: string | null
+          created_at: string
+          document_code: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          export_version: string
+          file_size_bytes: number | null
+          filters_json: Json
+          generated_at: string
+          generated_by: string
+          id: string
+          pdf_hash: string | null
+          period_month: string
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          seal_block_json: Json | null
+          signature_level: Database["public"]["Enums"]["signature_level"] | null
+          signed_at: string | null
+          signed_by: string | null
+          source_hash: string
+          source_row_count: number
+          status: Database["public"]["Enums"]["document_status"]
+          storage_path: string
+          worker_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       validate_work_summary: {
         Args: { p_summary_id: string; p_validator_id: string }
         Returns: {
@@ -721,7 +828,9 @@ export type Database = {
         | "mark_complete"
         | "other"
       day_status: "PRESENT" | "RETARD" | "ABSENT" | "ANOMALIE"
+      document_status: "DRAFT_PDF" | "SIGNED" | "REVOKED"
       document_type: "RAP" | "PTG"
+      signature_level: "VISUAL" | "SEALED" | "BOTH"
       validation_status: "DRAFT" | "VALIDATED"
       work_event_type: "TAKE" | "PAUSE" | "RESUME" | "END"
     }
@@ -882,7 +991,9 @@ export const Constants = {
         "other",
       ],
       day_status: ["PRESENT", "RETARD", "ABSENT", "ANOMALIE"],
+      document_status: ["DRAFT_PDF", "SIGNED", "REVOKED"],
       document_type: ["RAP", "PTG"],
+      signature_level: ["VISUAL", "SEALED", "BOTH"],
       validation_status: ["DRAFT", "VALIDATED"],
       work_event_type: ["TAKE", "PAUSE", "RESUME", "END"],
     },
