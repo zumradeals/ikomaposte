@@ -42,10 +42,15 @@ export interface WorkSummary {
   // Phase 7: Decision table fields
   day_status: 'PRESENT' | 'RETARD' | 'ABSENT' | 'ANOMALIE' | null;
   anomaly_code: string | null;
+  late_minutes: number;
   // Phase 7: Validation fields
   validation_status: 'DRAFT' | 'VALIDATED';
   validated_by: string | null;
   validated_at: string | null;
+  // Phase 7: HR Override fields
+  hr_override_checkin: string | null;
+  hr_override_checkout: string | null;
+  hr_override_reason: string | null;
 }
 
 export interface WorkSummaryWithWorker extends WorkSummary {
