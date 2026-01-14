@@ -53,14 +53,20 @@ export function evaluateDecisionTable(input: DecisionInput): DecisionResult {
   // PRIORITÉ 2: Jour non travaillé (pas d'horaire actif)
   // ============================================
   // Doctrine: Un jour sans horaire actif = ABSENT, pas une anomalie
+  // Safeguard: Si événements présents, trace interne pour audit
   
   if (!schedule || !schedule.is_active) {
+    const hasOffScheduleEvents = events.length > 0;
     return {
       day_status: 'ABSENT',
       anomaly_code: null,
       total_work_minutes: 0,
       late_minutes: 0,
       reason: 'Jour non travaillé (pas d\'horaire prévu)',
+      // Internal audit trace (non-exported, for forensics)
+      _audit_trace: hasOffScheduleEvents 
+        ? `OFF_SCHEDULE_EVENTS:${events.length}` 
+        : undefined,
     };
   }
 

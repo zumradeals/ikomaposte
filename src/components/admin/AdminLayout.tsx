@@ -20,7 +20,8 @@ import {
   Stethoscope,
   AlertTriangle,
   Download,
-  Shield
+  Shield,
+  Calendar
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -37,6 +38,7 @@ const navItems = [
   { path: '/admin/exports', label: 'Exports', icon: Download },
   { path: '/admin/devices', label: 'Appareils', icon: Tablet },
   { path: '/admin/categories', label: 'Catégories', icon: Tags },
+  { path: '/admin/schedules', label: 'Horaires', icon: Calendar },
   { path: '/admin/workers', label: 'Travailleurs', icon: Users },
   { path: '/admin/security', label: 'Sécurité', icon: Shield },
   { path: '/admin/diagnostic', label: 'Diagnostic', icon: Stethoscope },
