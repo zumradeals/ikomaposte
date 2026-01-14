@@ -1,7 +1,9 @@
 // Phase 4: Work Time Calculator
-// Transforms TRUSTED events into work segments and calculates durations/amounts
+// Build #1: Now integrates correction_events into calculations
+// Transforms TRUSTED events + corrections into work segments and calculates durations/amounts
 
 import { WorkEvent, WorkEventType } from '@/types/work-events';
+import { CorrectionEvent } from '@/types/corrections';
 import { 
   WorkSegment, 
   CalculationResult, 
@@ -9,6 +11,11 @@ import {
   DEFAULT_AUTO_CLOSE_MINUTE,
   CALCULATION_VERSION 
 } from '@/types/work-summaries';
+import { 
+  applyCorrections, 
+  formatCorrectionsNotes,
+  EffectiveEvent 
+} from './correction-applier';
 
 interface WorkerCategory {
   taux_horaire: number;
@@ -22,7 +29,9 @@ interface CalculationOptions {
 }
 
 /**
- * Calculate work segments from a sorted list of TRUSTED events
+ * Calculate work segments from a sorted list of effective events
+ * Now works with EffectiveEvent which can include virtual events from corrections
+ * 
  * Valid transitions:
  * - TAKE → PAUSE (work segment)
  * - TAKE → END (work segment)
@@ -30,7 +39,7 @@ interface CalculationOptions {
  * - RESUME → END (work segment)
  */
 export function calculateWorkSegments(
-  events: WorkEvent[],
+  events: EffectiveEvent[],
   options: CalculationOptions
 ): { segments: WorkSegment[]; warnings: string[]; autoCloseApplied: boolean } {
   const segments: WorkSegment[] = [];
@@ -42,18 +51,19 @@ export function calculateWorkSegments(
     new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime()
   );
 
-  // Filter only TRUSTED events
+  // Filter only TRUSTED events (all effective events should be trusted by now)
   const trustedEvents = sortedEvents.filter(e => e.trust_status === 'trusted');
 
   if (trustedEvents.length === 0) {
     return { segments, warnings: ['Aucun événement vérifié trouvé'], autoCloseApplied };
   }
 
-  let currentWorkStart: WorkEvent | null = null;
-  let lastPauseStart: WorkEvent | null = null;
+  let currentWorkStart: EffectiveEvent | null = null;
+  let lastPauseStart: EffectiveEvent | null = null;
 
   for (let i = 0; i < trustedEvents.length; i++) {
     const event = trustedEvents[i];
+    const isVirtual = 'is_virtual' in event && event.is_virtual;
 
     switch (event.event_type) {
       case 'TAKE':
@@ -69,6 +79,7 @@ export function calculateWorkSegments(
           warnings.push(`PAUSE sans TAKE à ${event.occurred_at}`);
         } else {
           // Create work segment from TAKE/RESUME to PAUSE
+          const startIsVirtual = 'is_virtual' in currentWorkStart && currentWorkStart.is_virtual;
           segments.push({
             start_event_id: currentWorkStart.id,
             end_event_id: event.id,
@@ -78,6 +89,7 @@ export function calculateWorkSegments(
             end_at: event.occurred_at,
             duration_minutes: calculateMinutes(currentWorkStart.occurred_at, event.occurred_at),
             is_auto_closed: false,
+            is_virtual: startIsVirtual || isVirtual,
           });
           lastPauseStart = event;
           currentWorkStart = null;
@@ -98,6 +110,7 @@ export function calculateWorkSegments(
           warnings.push(`END sans TAKE/RESUME à ${event.occurred_at}`);
         } else if (currentWorkStart) {
           // Create work segment from TAKE/RESUME to END
+          const startIsVirtual = 'is_virtual' in currentWorkStart && currentWorkStart.is_virtual;
           segments.push({
             start_event_id: currentWorkStart.id,
             end_event_id: event.id,
@@ -107,6 +120,7 @@ export function calculateWorkSegments(
             end_at: event.occurred_at,
             duration_minutes: calculateMinutes(currentWorkStart.occurred_at, event.occurred_at),
             is_auto_closed: false,
+            is_virtual: startIsVirtual || isVirtual,
           });
           currentWorkStart = null;
           lastPauseStart = null;
@@ -130,6 +144,7 @@ export function calculateWorkSegments(
     // Only auto-close if the work start is before auto-close time
     const workStartTime = new Date(currentWorkStart.occurred_at);
     if (workStartTime < autoCloseTime) {
+      const startIsVirtual = 'is_virtual' in currentWorkStart && currentWorkStart.is_virtual;
       segments.push({
         start_event_id: currentWorkStart.id,
         end_event_id: 'AUTO_CLOSE',
@@ -139,6 +154,7 @@ export function calculateWorkSegments(
         end_at: autoCloseTime.toISOString(),
         duration_minutes: calculateMinutes(currentWorkStart.occurred_at, autoCloseTime.toISOString()),
         is_auto_closed: true,
+        is_virtual: startIsVirtual,
       });
       autoCloseApplied = true;
       warnings.push(`Clôture automatique appliquée à ${autoCloseHour}:${autoCloseMinute.toString().padStart(2, '0')}`);
@@ -186,25 +202,65 @@ export function calculateAmount(
 
 /**
  * Full calculation for a worker's day
+ * BUILD #1: Now applies corrections before calculating
  */
 export function calculateWorkerDay(
   events: WorkEvent[],
+  corrections: CorrectionEvent[],
   category: WorkerCategory,
   workDate: Date,
   autoCloseHour?: number,
   autoCloseMinute?: number
 ): CalculationResult {
   const warnings: string[] = [];
+  const workDateStr = workDate.toISOString().split('T')[0];
 
   try {
-    // Filter only trusted events
-    const trustedEvents = events.filter(e => e.trust_status === 'trusted');
+    // BUILD #1: Apply corrections to get effective events
+    const { effectiveEvents, appliedCorrections, notes: correctionNotes } = applyCorrections(
+      events,
+      corrections,
+      workDateStr
+    );
+
+    // Add correction notes to warnings for visibility
+    if (correctionNotes.length > 0) {
+      warnings.push(...correctionNotes);
+    }
+
+    // Check if day was marked absent
+    if (effectiveEvents.length === 0 && corrections.some(c => c.correction_action === 'mark_absent')) {
+      return {
+        success: true,
+        summary: {
+          worker_id: events[0]?.worker_id || '',
+          work_date: workDateStr,
+          total_work_minutes: 0,
+          total_pause_minutes: 0,
+          total_amount: 0,
+          devise: category.devise,
+          taux_horaire_applied: category.taux_horaire,
+          auto_closed: false,
+          auto_close_time: null,
+          calculation_version: CALCULATION_VERSION,
+          events_used: [],
+          segments_json: [],
+          notes: formatCorrectionsNotes(appliedCorrections) || 'Journée marquée absente',
+        },
+        warnings: ['Journée marquée absente par correction'],
+        correctionsApplied: appliedCorrections.length,
+      };
+    }
+
+    // Filter only trusted events (should all be trusted after corrections)
+    const trustedEvents = effectiveEvents.filter(e => e.trust_status === 'trusted');
     
     if (trustedEvents.length === 0) {
       return {
         success: false,
         error: 'Aucun événement vérifié pour cette journée',
         warnings: ['Tous les événements sont non vérifiés'],
+        correctionsApplied: appliedCorrections.length,
       };
     }
 
@@ -221,6 +277,7 @@ export function calculateWorkerDay(
         success: false,
         error: 'Aucun segment de travail valide',
         warnings,
+        correctionsApplied: appliedCorrections.length,
       };
     }
 
@@ -228,37 +285,51 @@ export function calculateWorkerDay(
     const { totalWorkMinutes, totalPauseMinutes } = calculateTotals(segments);
     const { amount, devise } = calculateAmount(totalWorkMinutes, category);
 
+    // Build notes with correction info
+    const allNotes: string[] = [];
+    if (appliedCorrections.length > 0) {
+      allNotes.push(formatCorrectionsNotes(appliedCorrections));
+    }
+    if (warnings.length > 0) {
+      allNotes.push(...warnings);
+    }
+
+    // Get event IDs used (only real events, not virtual)
+    const eventsUsed = trustedEvents
+      .filter(e => !('is_virtual' in e && e.is_virtual))
+      .map(e => e.id);
+
     // Build summary
     const summary = {
-      id: '', // Will be set by database
       worker_id: trustedEvents[0].worker_id,
-      work_date: workDate.toISOString().split('T')[0],
+      work_date: workDateStr,
       total_work_minutes: totalWorkMinutes,
       total_pause_minutes: totalPauseMinutes,
       total_amount: amount,
       devise,
       taux_horaire_applied: category.taux_horaire,
       auto_closed: autoCloseApplied,
-      auto_close_time: autoCloseApplied ? `${autoCloseHour ?? DEFAULT_AUTO_CLOSE_HOUR}:${(autoCloseMinute ?? DEFAULT_AUTO_CLOSE_MINUTE).toString().padStart(2, '0')}:00` : null,
+      auto_close_time: autoCloseApplied 
+        ? `${autoCloseHour ?? DEFAULT_AUTO_CLOSE_HOUR}:${(autoCloseMinute ?? DEFAULT_AUTO_CLOSE_MINUTE).toString().padStart(2, '0')}:00` 
+        : null,
       calculation_version: CALCULATION_VERSION,
-      calculated_at: new Date().toISOString(),
-      events_used: trustedEvents.map(e => e.id),
+      events_used: eventsUsed,
       segments_json: segments,
-      notes: warnings.length > 0 ? warnings.join('; ') : null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      notes: allNotes.length > 0 ? allNotes.join('; ') : null,
     };
 
     return {
       success: true,
       summary,
       warnings,
+      correctionsApplied: appliedCorrections.length,
     };
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erreur de calcul',
       warnings,
+      correctionsApplied: 0,
     };
   }
 }

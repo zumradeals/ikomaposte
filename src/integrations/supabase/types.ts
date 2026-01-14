@@ -208,8 +208,14 @@ export type Database = {
           devise: string
           events_used: string[]
           id: string
+          is_current: boolean
+          locked: boolean
+          locked_at: string | null
+          locked_by: string | null
           notes: string | null
+          revision: number
           segments_json: Json | null
+          supersedes_id: string | null
           taux_horaire_applied: number
           total_amount: number
           total_pause_minutes: number
@@ -227,8 +233,14 @@ export type Database = {
           devise?: string
           events_used?: string[]
           id?: string
+          is_current?: boolean
+          locked?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
           notes?: string | null
+          revision?: number
           segments_json?: Json | null
+          supersedes_id?: string | null
           taux_horaire_applied?: number
           total_amount?: number
           total_pause_minutes?: number
@@ -246,8 +258,14 @@ export type Database = {
           devise?: string
           events_used?: string[]
           id?: string
+          is_current?: boolean
+          locked?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
           notes?: string | null
+          revision?: number
           segments_json?: Json | null
+          supersedes_id?: string | null
           taux_horaire_applied?: number
           total_amount?: number
           total_pause_minutes?: number
@@ -257,6 +275,13 @@ export type Database = {
           worker_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "work_summaries_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "work_summaries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_summaries_worker_id_fkey"
             columns: ["worker_id"]
