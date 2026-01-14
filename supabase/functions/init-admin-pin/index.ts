@@ -56,19 +56,53 @@ Deno.serve(async (req: Request) => {
     }
 
     const userId = user.id;
-    // Check if user is admin
-    const { data: roleData } = await serviceClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .single();
 
-    if (!roleData) {
-      return new Response(
-        JSON.stringify({ ok: false, reason: "NOT_ADMIN" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Bootstrap rule: if NO admin exists yet, allow the first authenticated user
+    // to initialize the PIN and grant themselves the admin role.
+    const { data: anyAdmin, error: anyAdminError } = await serviceClient
+      .from("user_roles")
+      .select("id")
+      .eq("role", "admin")
+      .limit(1);
+
+    const hasAnyAdmin = !anyAdminError && Array.isArray(anyAdmin) && anyAdmin.length > 0;
+
+    if (hasAnyAdmin) {
+      // Normal mode: require admin role
+      const { data: roleData } = await serviceClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .single();
+
+      if (!roleData) {
+        return new Response(
+          JSON.stringify({ ok: false, reason: "NOT_ADMIN" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      // First install: grant admin to current user
+      const { error: grantError } = await serviceClient
+        .from("user_roles")
+        .insert({ user_id: userId, role: "admin" });
+
+      if (grantError) {
+        console.error("[init-admin-pin] Failed to bootstrap admin role:", grantError);
+        return new Response(
+          JSON.stringify({ ok: false, reason: "BOOTSTRAP_FAILED" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      await serviceClient.from("admin_audit").insert({
+        device_id: "admin-bootstrap",
+        event: "ADMIN_BOOTSTRAPPED",
+        reason: `first_admin=${userId}`,
+        ip_address: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown",
+        user_agent: req.headers.get("user-agent") || "unknown",
+      });
     }
 
     // Parse request
