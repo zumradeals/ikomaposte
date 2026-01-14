@@ -544,6 +544,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      hr_validate_summaries: {
+        Args: { p_summary_ids: string[] }
+        Returns: Json
+      }
       validate_work_summary: {
         Args: { p_summary_id: string; p_validator_id: string }
         Returns: {

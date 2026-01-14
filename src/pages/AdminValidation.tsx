@@ -103,7 +103,17 @@ export default function AdminValidation() {
     
     await batchValidate.mutateAsync({
       summaryIds: Array.from(selectedIds),
-      validatorId: user.id,
+    });
+    
+    setSelectedIds(new Set());
+  };
+
+  // Handle validate all filtered
+  const handleValidateAllFiltered = async () => {
+    if (!user?.id || filteredData.length === 0) return;
+    
+    await batchValidate.mutateAsync({
+      summaryIds: filteredData.map(s => s.id),
     });
     
     setSelectedIds(new Set());
@@ -266,16 +276,34 @@ export default function AdminValidation() {
         </Card>
 
         {/* Batch Actions */}
-        {selectedIds.size > 0 && (
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="py-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">
-                  {selectedIds.size} résumé(s) sélectionné(s)
-                </span>
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="py-3">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <span className="text-sm font-medium">
+                {selectedIds.size > 0 
+                  ? `${selectedIds.size} résumé(s) sélectionné(s)`
+                  : `${filteredData.length} résumé(s) dans le filtre`
+                }
+              </span>
+              <div className="flex gap-2">
+                {selectedIds.size > 0 && (
+                  <Button
+                    onClick={handleBatchValidate}
+                    disabled={batchValidate.isPending}
+                    className="gap-2"
+                    variant="secondary"
+                  >
+                    {batchValidate.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCheck className="h-4 w-4" />
+                    )}
+                    Valider la sélection
+                  </Button>
+                )}
                 <Button
-                  onClick={handleBatchValidate}
-                  disabled={batchValidate.isPending}
+                  onClick={handleValidateAllFiltered}
+                  disabled={batchValidate.isPending || filteredData.length === 0}
                   className="gap-2"
                 >
                   {batchValidate.isPending ? (
@@ -283,12 +311,12 @@ export default function AdminValidation() {
                   ) : (
                     <CheckCheck className="h-4 w-4" />
                   )}
-                  Valider la sélection
+                  Valider tout le filtre ({filteredData.length})
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Data Table */}
         <Card>

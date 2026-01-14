@@ -273,6 +273,30 @@ export function generateMonthlyExportCSV(
 }
 
 // ============================================
+// JSON GENERATION
+// ============================================
+
+export function generateDailyExportJSON(
+  rows: DailyExportRow[],
+  metadata: DailyExportMetadata
+): string {
+  return JSON.stringify({
+    ...metadata,
+    data: rows,
+  }, null, 2);
+}
+
+export function generateMonthlyExportJSON(
+  rows: MonthlyExportRow[],
+  metadata: MonthlyExportMetadata
+): string {
+  return JSON.stringify({
+    ...metadata,
+    data: rows,
+  }, null, 2);
+}
+
+// ============================================
 // EXPORT EXECUTION
 // ============================================
 
@@ -282,8 +306,9 @@ export function generateMonthlyExportCSV(
 export function executeDailyExport(
   summaries: WorkSummaryWithWorker[],
   periodMonth: string,
-  sequence: number
-): { filename: string; rowCount: number } {
+  sequence: number,
+  format: 'csv' | 'json' = 'csv'
+): { filename: string; rowCount: number; format: string } {
   const rows = generateDailyExportRows(summaries);
   const filename = generateExportFilename('DAILY', periodMonth, sequence);
   
@@ -296,10 +321,15 @@ export function executeDailyExport(
     filename,
   };
 
-  const csv = generateDailyExportCSV(rows, metadata);
-  downloadFile(csv, `${filename}.csv`, 'text/csv;charset=utf-8;');
+  if (format === 'json') {
+    const json = generateDailyExportJSON(rows, metadata);
+    downloadFile(json, `${filename}.json`, 'application/json;charset=utf-8;');
+  } else {
+    const csv = generateDailyExportCSV(rows, metadata);
+    downloadFile(csv, `${filename}.csv`, 'text/csv;charset=utf-8;');
+  }
 
-  return { filename, rowCount: rows.length };
+  return { filename, rowCount: rows.length, format };
 }
 
 /**
@@ -308,8 +338,9 @@ export function executeDailyExport(
 export function executeMonthlyExport(
   summaries: WorkSummaryWithWorker[],
   periodMonth: string,
-  sequence: number
-): { filename: string; workerCount: number; dayCount: number } {
+  sequence: number,
+  format: 'csv' | 'json' = 'csv'
+): { filename: string; workerCount: number; dayCount: number; format: string } {
   // First generate daily rows (source of truth)
   const dailyRows = generateDailyExportRows(summaries);
   
@@ -327,12 +358,18 @@ export function executeMonthlyExport(
     filename,
   };
 
-  const csv = generateMonthlyExportCSV(monthlyRows, metadata);
-  downloadFile(csv, `${filename}.csv`, 'text/csv;charset=utf-8;');
+  if (format === 'json') {
+    const json = generateMonthlyExportJSON(monthlyRows, metadata);
+    downloadFile(json, `${filename}.json`, 'application/json;charset=utf-8;');
+  } else {
+    const csv = generateMonthlyExportCSV(monthlyRows, metadata);
+    downloadFile(csv, `${filename}.csv`, 'text/csv;charset=utf-8;');
+  }
 
   return { 
     filename, 
     workerCount: monthlyRows.length, 
     dayCount: metadata.total_validated_days,
+    format,
   };
 }

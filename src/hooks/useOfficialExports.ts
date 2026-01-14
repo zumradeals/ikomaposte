@@ -140,9 +140,11 @@ export function useDailyExport() {
     mutationFn: async ({
       summaries,
       periodMonth,
+      format = 'csv',
     }: {
       summaries: WorkSummaryWithWorker[];
       periodMonth: string;
+      format?: 'csv' | 'json';
     }) => {
       if (!user?.id) {
         throw new Error('Utilisateur non authentifié');
@@ -151,7 +153,7 @@ export function useDailyExport() {
       const monthKey = periodMonth.replace('-', '');
       const sequence = incrementSequence('daily', monthKey);
       
-      const result = executeDailyExport(summaries, periodMonth, sequence);
+      const result = executeDailyExport(summaries, periodMonth, sequence, format);
       
       // Log to audit
       await logOfficialExport('IKP-DAILY', periodMonth, result.filename, user.id, result.rowCount);
@@ -161,7 +163,7 @@ export function useDailyExport() {
     onSuccess: (result) => {
       toast({
         title: 'Export Journalier',
-        description: `${result.filename}.csv téléchargé (${result.rowCount} lignes)`,
+        description: `${result.filename}.${result.format} téléchargé (${result.rowCount} lignes)`,
       });
     },
     onError: (error: Error) => {
@@ -182,9 +184,11 @@ export function useMonthlyExport() {
     mutationFn: async ({
       summaries,
       periodMonth,
+      format = 'csv',
     }: {
       summaries: WorkSummaryWithWorker[];
       periodMonth: string;
+      format?: 'csv' | 'json';
     }) => {
       if (!user?.id) {
         throw new Error('Utilisateur non authentifié');
@@ -193,7 +197,7 @@ export function useMonthlyExport() {
       const monthKey = periodMonth.replace('-', '');
       const sequence = incrementSequence('monthly', monthKey);
       
-      const result = executeMonthlyExport(summaries, periodMonth, sequence);
+      const result = executeMonthlyExport(summaries, periodMonth, sequence, format);
       
       // Log to audit
       await logOfficialExport('IKP-MONTH', periodMonth, result.filename, user.id, result.workerCount);
@@ -203,7 +207,7 @@ export function useMonthlyExport() {
     onSuccess: (result) => {
       toast({
         title: 'Export Mensuel',
-        description: `${result.filename}.csv téléchargé (${result.workerCount} travailleurs, ${result.dayCount} jours)`,
+        description: `${result.filename}.${result.format} téléchargé (${result.workerCount} travailleurs, ${result.dayCount} jours)`,
       });
     },
     onError: (error: Error) => {

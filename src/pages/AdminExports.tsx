@@ -160,19 +160,21 @@ export default function AdminExports() {
   };
 
   // Official export handlers
-  const handleOfficialDailyExport = () => {
+  const handleOfficialDailyExport = (format: 'csv' | 'json') => {
     if (!officialData) return;
     dailyExport.mutate({
       summaries: officialData.summaries,
       periodMonth: officialData.periodMonth,
+      format,
     });
   };
 
-  const handleOfficialMonthlyExport = () => {
+  const handleOfficialMonthlyExport = (format: 'csv' | 'json') => {
     if (!officialData) return;
     monthlyExport.mutate({
       summaries: officialData.summaries,
       periodMonth: officialData.periodMonth,
+      format,
     });
   };
 
@@ -288,23 +290,34 @@ export default function AdminExports() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="text-sm space-y-1 bg-muted/50 p-3 rounded">
-                  <p><strong>Format:</strong> IKP-DAILY-YYYYMM-SEQ.csv</p>
+                  <p><strong>Format:</strong> IKP-DAILY-YYYYMM-SEQ</p>
                   <p><strong>Contenu:</strong> VALIDATED + is_current uniquement</p>
                   <p><strong>Règles:</strong> Minutes, pas de pause, pas de forensic</p>
                 </div>
-                <Button 
-                  onClick={handleOfficialDailyExport}
-                  disabled={officialLoading || !officialData?.stats.totalValidated || dailyExport.isPending}
-                  className="w-full gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Télécharger Journalier
-                  {officialData && (
-                    <Badge variant="secondary" className="ml-2">
-                      {officialData.stats.totalValidated} lignes
-                    </Badge>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => handleOfficialDailyExport('csv')}
+                    disabled={officialLoading || !officialData?.stats.totalValidated || dailyExport.isPending}
+                    className="flex-1 gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    CSV
+                  </Button>
+                  <Button 
+                    onClick={() => handleOfficialDailyExport('json')}
+                    disabled={officialLoading || !officialData?.stats.totalValidated || dailyExport.isPending}
+                    className="flex-1 gap-2"
+                    variant="outline"
+                  >
+                    <FileJson className="h-4 w-4" />
+                    JSON
+                  </Button>
+                </div>
+                {officialData && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    {officialData.stats.totalValidated} lignes disponibles
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -321,23 +334,34 @@ export default function AdminExports() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="text-sm space-y-1 bg-muted/50 p-3 rounded">
-                  <p><strong>Format:</strong> IKP-MONTH-YYYYMM-SEQ.csv</p>
+                  <p><strong>Format:</strong> IKP-MONTH-YYYYMM-SEQ</p>
                   <p><strong>Contenu:</strong> Somme des jours PRESENT+RETARD</p>
                   <p><strong>Compteurs:</strong> worked_days, late_days, absent_days, anomaly_days</p>
                 </div>
-                <Button 
-                  onClick={handleOfficialMonthlyExport}
-                  disabled={officialLoading || !officialData?.stats.totalValidated || monthlyExport.isPending}
-                  className="w-full gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Télécharger Mensuel
-                  {officialData && (
-                    <Badge variant="secondary" className="ml-2">
-                      {officialData.stats.uniqueWorkers} travailleurs
-                    </Badge>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => handleOfficialMonthlyExport('csv')}
+                    disabled={officialLoading || !officialData?.stats.totalValidated || monthlyExport.isPending}
+                    className="flex-1 gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    CSV
+                  </Button>
+                  <Button 
+                    onClick={() => handleOfficialMonthlyExport('json')}
+                    disabled={officialLoading || !officialData?.stats.totalValidated || monthlyExport.isPending}
+                    className="flex-1 gap-2"
+                    variant="outline"
+                  >
+                    <FileJson className="h-4 w-4" />
+                    JSON
+                  </Button>
+                </div>
+                {officialData && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    {officialData.stats.uniqueWorkers} travailleurs
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
