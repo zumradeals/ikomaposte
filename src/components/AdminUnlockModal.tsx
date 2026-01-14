@@ -116,7 +116,7 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
           if (result.reason === 'INVALID_PIN') {
             setError('Code incorrect');
           } else if (result.reason === 'NO_PIN_CONFIGURED') {
-            setError('Aucun PIN configuré - contactez un admin');
+            setError('Aucun PIN configuré');
           } else {
             setError('Erreur de connexion');
           }
@@ -157,7 +157,7 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
           <p className="text-center text-muted-foreground mb-6 text-lg">
             Entrez le code PIN à 4 chiffres
           </p>
-          
+
           {/* Rate limit warning */}
           {rateLimited && (
             <div className="flex flex-col items-center justify-center gap-2 text-amber-500 bg-amber-500/10 rounded-lg p-4 mb-6 animate-fade-in">
@@ -166,7 +166,7 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
               <span className="text-sm">Réessayez dans {formatRetryTime(retryAfter)}</span>
             </div>
           )}
-          
+
           {/* PIN inputs */}
           <div className="flex justify-center gap-4 mb-6">
             {pin.map((digit, index) => (
@@ -184,14 +184,30 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
               />
             ))}
           </div>
-          
+
           {/* Error message */}
           {error && !rateLimited && (
-            <div className="flex flex-col items-center justify-center gap-1 text-destructive animate-fade-in mb-4">
+            <div className="flex flex-col items-center justify-center gap-2 text-destructive animate-fade-in mb-4">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />
                 <span className="text-lg">{error}</span>
               </div>
+
+              {error === 'Aucun PIN configuré' && isAdmin && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-1"
+                  onClick={() => {
+                    onOpenChange(false);
+                    navigate('/admin/security/setup');
+                  }}
+                >
+                  Configurer le PIN
+                </Button>
+              )}
+
               {attemptsRemaining !== undefined && attemptsRemaining > 0 && (
                 <span className="text-sm text-muted-foreground">
                   {attemptsRemaining} tentative{attemptsRemaining > 1 ? 's' : ''} restante{attemptsRemaining > 1 ? 's' : ''}
@@ -199,7 +215,7 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
               )}
             </div>
           )}
-          
+
           {/* Loading state */}
           {loading && (
             <div className="flex justify-center mb-4">
@@ -209,9 +225,9 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
 
           {/* Session repair button */}
           <div className="border-t border-border pt-4 mt-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="w-full text-muted-foreground"
               onClick={handleRepairSession}
             >

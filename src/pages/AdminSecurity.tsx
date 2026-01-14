@@ -31,7 +31,6 @@ export default function AdminSecurity() {
   
   // PIN initialization form
   const [newPin, setNewPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
   const [showNewPin, setShowNewPin] = useState(false);
   const [initLoading, setInitLoading] = useState(false);
   
@@ -51,16 +50,24 @@ export default function AdminSecurity() {
   }, []);
 
   const checkPinStatus = async () => {
-    // Try to call verify with dummy data - if NO_PIN_CONFIGURED, we need to set one
-    const { data } = await supabase.functions.invoke('verify-admin-pin', {
+    // Call verify with dummy data - if NO_PIN_CONFIGURED, we need to set one.
+    // verify-admin-pin returns 200 for NO_PIN_CONFIGURED (expected state).
+    const { data, error } = await supabase.functions.invoke('verify-admin-pin', {
       body: { pin: '0000', device_id: 'check', scope: 'global' },
     });
-    
+
     if (data?.reason === 'NO_PIN_CONFIGURED') {
       setPinConfigured(false);
-    } else {
-      setPinConfigured(true);
+      return;
     }
+
+    // If something else failed, stay conservative and assume configured to avoid exposing init UI incorrectly.
+    if (error) {
+      setPinConfigured(true);
+      return;
+    }
+
+    setPinConfigured(true);
   };
 
   const fetchAuditLogs = async () => {
@@ -83,32 +90,26 @@ export default function AdminSecurity() {
 
   const handleInitPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
       toast({ title: 'Erreur', description: 'Le PIN doit être 4 chiffres', variant: 'destructive' });
       return;
     }
-    
-    if (newPin !== confirmPin) {
-      toast({ title: 'Erreur', description: 'Les PINs ne correspondent pas', variant: 'destructive' });
-      return;
-    }
-    
+
     setInitLoading(true);
     const result = await initAdminPin(newPin, true);
     setInitLoading(false);
-    
+
     if (result.success) {
       toast({ title: 'Succès', description: 'PIN administrateur initialisé' });
       setPinConfigured(true);
       setNewPin('');
-      setConfirmPin('');
       fetchAuditLogs();
     } else {
-      toast({ 
-        title: 'Erreur', 
-        description: `Échec: ${result.reason}`, 
-        variant: 'destructive' 
+      toast({
+        title: 'Erreur',
+        description: `Échec: ${result.reason}`,
+        variant: 'destructive'
       });
     }
   };
@@ -155,15 +156,15 @@ export default function AdminSecurity() {
   const getEventBadge = (event: string) => {
     switch (event) {
       case 'ADMIN_LOGIN_SUCCESS':
-        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Succès</Badge>;
+        return <Badge className="bg-success/10 text-success border-success/20">Succès</Badge>;
       case 'ADMIN_LOGIN_FAIL':
         return <Badge variant="destructive">Échec</Badge>;
       case 'ADMIN_LOGIN_ATTEMPT':
         return <Badge variant="outline">Tentative</Badge>;
       case 'ADMIN_PIN_ROTATED':
-        return <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20">Rotation</Badge>;
+        return <Badge className="bg-primary/10 text-primary border-primary/20">Rotation</Badge>;
       case 'ADMIN_PIN_INITIALIZED':
-        return <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/20">Init</Badge>;
+        return <Badge className="bg-accent/10 text-accent border-accent/20">Init</Badge>;
       default:
         return <Badge variant="secondary">{event}</Badge>;
     }
@@ -184,10 +185,10 @@ export default function AdminSecurity() {
         )}
         
         {pinConfigured === true && (
-          <Alert className="bg-green-500/10 border-green-500/20">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-700">PIN configuré</AlertTitle>
-            <AlertDescription className="text-green-600">
+          <Alert className="bg-success/10 border-success/20">
+            <CheckCircle className="h-4 w-4 text-success" />
+            <AlertTitle className="text-success">PIN configuré</AlertTitle>
+            <AlertDescription className="text-success">
               Le PIN administrateur est actif et sécurisé (hashé avec bcrypt).
             </AlertDescription>
           </Alert>
@@ -232,20 +233,7 @@ export default function AdminSecurity() {
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPin">Confirmer le PIN</Label>
-                    <Input
-                      id="confirmPin"
-                      type="password"
-                      inputMode="numeric"
-                      maxLength={4}
-                      value={confirmPin}
-                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-                      placeholder="****"
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full" disabled={initLoading}>
+                  <Button type="submit" className="w-full" disabled={initLoading || newPin.length !== 4}>
                     {initLoading ? 'Initialisation...' : 'Définir le PIN'}
                   </Button>
                 </form>

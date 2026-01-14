@@ -236,7 +236,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!secretData) {
-      // No PIN configured - this is a setup issue, don't count against rate limit
+      // No PIN configured - expected during initial setup. Do NOT count against rate limit.
       await supabase.from("admin_audit").insert({
         device_id,
         event: "ADMIN_LOGIN_FAIL",
@@ -245,10 +245,10 @@ Deno.serve(async (req: Request) => {
         user_agent: userAgent,
       });
 
-      console.error("[verify-admin-pin] No active PIN found for scope:", scope);
+      // Return 200 so clients can handle the state (avoids blank screens from treated-as-exception 5xx)
       return new Response(
         JSON.stringify({ ok: false, reason: "NO_PIN_CONFIGURED" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

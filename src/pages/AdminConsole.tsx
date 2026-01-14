@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
 import { AdminLayout } from '@/components/admin/AdminLayout';
@@ -6,9 +6,8 @@ import { useCategories } from '@/hooks/useCategories';
 import { useWorkers } from '@/hooks/useWorkers';
 import { useTodayEvents } from '@/hooks/useWorkEvents';
 import { getAdminEvents, getDeviceInfo } from '@/lib/storage';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Monitor,
   Users,
@@ -17,9 +16,6 @@ import {
   Clock,
   ShieldCheck,
   ShieldAlert,
-  Lock,
-  KeyRound,
-  Shield,
 } from 'lucide-react';
 import { AdminAuthGuard } from '@/components/admin/AdminAuthGuard';
 import { AdminUnlockModal } from '@/components/AdminUnlockModal';
@@ -242,12 +238,22 @@ function AdminConsoleLocked() {
         const { data } = await supabase.functions.invoke('verify-admin-pin', {
           body: { pin: '0000', device_id: 'status-check', scope: 'global' },
         });
+
         if (!alive) return;
-        setPinConfigured(data?.reason !== 'NO_PIN_CONFIGURED');
+        const configured = data?.reason !== 'NO_PIN_CONFIGURED';
+        setPinConfigured(configured);
+
+        // UX: no "blocking screen" — go straight to the relevant next step.
+        if (!configured) {
+          navigate('/admin/security/setup', { replace: true });
+        } else {
+          setUnlockOpen(true);
+        }
       } catch {
-        // If we can't determine, stay neutral and allow user to try the unlock.
+        // If we can't determine, allow the user to try unlocking.
         if (!alive) return;
         setPinConfigured(null);
+        setUnlockOpen(true);
       }
     };
 
@@ -255,66 +261,12 @@ function AdminConsoleLocked() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [navigate]);
 
-  const showInitPin = useMemo(() => pinConfigured === false, [pinConfigured]);
-
+  // If we already redirected to setup, keep render minimal.
   return (
     <AdminAuthGuard>
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-primary" />
-              Console admin verrouillée
-            </CardTitle>
-            <CardDescription>
-              Pour accéder à l'administration, vous devez déverrouiller la session avec le PIN.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {showInitPin && (
-              <Alert>
-                <Shield className="h-4 w-4" />
-                <AlertTitle>PIN non configuré</AlertTitle>
-                <AlertDescription>
-                  Aucun PIN n'est encore défini. Configurez-le pour sécuriser l'accès.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex flex-col gap-2">
-              {showInitPin ? (
-                <Button className="w-full" onClick={() => navigate('/admin/security/setup')}>
-                  <Shield className="h-4 w-4 mr-2" />
-                  Configurer le PIN administrateur
-                </Button>
-              ) : (
-                <>
-                  <Button className="w-full" onClick={() => setUnlockOpen(true)}>
-                    <KeyRound className="h-4 w-4 mr-2" />
-                    Entrer le PIN
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate('/admin/security/setup')}
-                  >
-                    <Shield className="h-4 w-4 mr-2" />
-                    Sécurité (changer le PIN)
-                  </Button>
-                </>
-              )}
-
-              <Button variant="ghost" className="w-full" onClick={() => navigate('/')}
-              >
-                Retour au scan
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="min-h-screen bg-background">
         <AdminUnlockModal open={unlockOpen} onOpenChange={setUnlockOpen} />
       </div>
     </AdminAuthGuard>
