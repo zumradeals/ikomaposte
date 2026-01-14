@@ -19,6 +19,7 @@ import AdminSessionDiagnostic from "./pages/AdminSessionDiagnostic";
 import AdminAnomalies from "./pages/AdminAnomalies";
 import AdminExports from "./pages/AdminExports";
 import AdminSecurity from "./pages/AdminSecurity";
+import AdminSecuritySetup from "./pages/AdminSecuritySetup";
 import AdminSchedules from "./pages/AdminSchedules";
 import AdminValidation from "./pages/AdminValidation";
 import VerifyDocument from "./pages/VerifyDocument";
@@ -87,6 +88,8 @@ const App = () => {
                 <Route path="/admin/workers" element={<AdminWorkers />} />
                 <Route path="/admin/diagnostic" element={<AdminDiagnostic />} />
                 <Route path="/admin/security" element={<AdminSecurity />} />
+                {/* Security setup - accessible without PIN (only email login required) */}
+                <Route path="/admin/security/setup" element={<AdminSecuritySetup />} />
                 {/* Session diagnostics (PIN only, no login required) */}
                 <Route path="/admin/session" element={<AdminSessionDiagnostic />} />
                 
