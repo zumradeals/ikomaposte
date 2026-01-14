@@ -117,12 +117,12 @@ export function PDFGeneratorCard({
             Récapitulatif mensuel de tous les salariés (avec filtre catégorie optionnel)
           </p>
           <div className="flex gap-2">
-            <Select value={ptgCategoryId} onValueChange={setPtgCategoryId}>
+            <Select value={ptgCategoryId} onValueChange={(val) => setPtgCategoryId(val === '__all__' ? '' : val)}>
               <SelectTrigger className="flex-1">
                 <SelectValue placeholder="Toutes catégories (optionnel)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Toutes catégories</SelectItem>
+                <SelectItem value="__all__">Toutes catégories</SelectItem>
                 {activeCategories.map(cat => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.nom}
