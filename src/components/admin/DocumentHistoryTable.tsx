@@ -47,6 +47,7 @@ import {
   XCircle,
   AlertTriangle,
   QrCode,
+  RefreshCw,
 } from 'lucide-react';
 import { 
   useDocuments, 
@@ -54,6 +55,7 @@ import {
   useSignDocument,
   useVerifyDocument,
   useRevokeDocument,
+  useRegeneratePDFs,
   Document,
   SignatureLevel,
   VerificationResult,
@@ -72,6 +74,7 @@ export function DocumentHistoryTable({ periodMonth }: DocumentHistoryTableProps)
   const signDoc = useSignDocument();
   const verifyDoc = useVerifyDocument();
   const revokeDoc = useRevokeDocument();
+  const regeneratePDFs = useRegeneratePDFs();
 
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
@@ -146,14 +149,32 @@ export function DocumentHistoryTable({ periodMonth }: DocumentHistoryTableProps)
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
-            Historique des documents
-          </CardTitle>
-          <CardDescription>
-            Documents PDF générés avec signature électronique et traçabilité opposable
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Historique des documents
+            </CardTitle>
+            <CardDescription>
+              Documents PDF générés avec signature électronique et traçabilité opposable
+            </CardDescription>
+          </div>
+          {documents && documents.some(d => d.status === 'DRAFT_PDF') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => regeneratePDFs.mutate()}
+              disabled={regeneratePDFs.isPending}
+              className="gap-2"
+            >
+              {regeneratePDFs.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Réparer les PDFs
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
