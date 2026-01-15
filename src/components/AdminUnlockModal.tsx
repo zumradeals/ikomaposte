@@ -25,7 +25,7 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
   const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
   const { attemptUnlock } = useAdmin();
-  const { user, isAdmin } = useAuth();
+  const { isAdmin, refreshAdminStatus } = useAuth();
   const { toast } = useToast();
 
   // Focus first input when modal opens
@@ -99,8 +99,12 @@ export function AdminUnlockModal({ open, onOpenChange }: AdminUnlockModalProps) 
     
     try {
       const result = await attemptUnlock(fullPin);
-      
+
       if (result.success) {
+        // Important: ensure admin role state is synced before leaving the modal,
+        // otherwise AdminAuthGuard may redirect to home due to a stale isAdmin=false.
+        await refreshAdminStatus();
+
         onOpenChange(false);
         navigate('/admin');
       } else {
