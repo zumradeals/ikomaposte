@@ -310,3 +310,49 @@ export function useRevokeDocument() {
     },
   });
 }
+
+// Regenerate PDF documents with valid format
+export function useRegeneratePDFs() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/regenerate-pdf`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({}),
+        }
+      );
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to regenerate PDFs');
+      }
+
+      return result;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'PDFs régénérés',
+        description: `${data.regenerated}/${data.total} documents mis à jour`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erreur régénération',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
