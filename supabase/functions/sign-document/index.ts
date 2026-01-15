@@ -233,16 +233,18 @@ serve(async (req) => {
       throw new Error("Failed to upload signed PDF");
     }
 
-    // Update document record using RPC
-    const { data: signedDoc, error: signError } = await supabaseAdmin.rpc(
-      "sign_document",
-      {
-        p_document_id: documentId,
-        p_signature_level: signatureLevel,
-        p_pdf_hash: pdfHash,
-        p_seal_block: sealBlock,
-      }
-    );
+    // Update document record directly (already validated admin role above)
+    const { error: signError } = await supabaseAdmin
+      .from("documents")
+      .update({
+        status: "SIGNED",
+        signed_by: user.id,
+        signed_at: signedAt,
+        signature_level: signatureLevel,
+        pdf_hash: pdfHash,
+        seal_block_json: sealBlock,
+      })
+      .eq("id", documentId);
 
     if (signError) {
       console.error("Sign error:", signError);
