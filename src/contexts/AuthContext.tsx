@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -52,13 +52,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Hard stop: never keep the UI stuck in "Vérification des autorisations..."
+    // IMPORTANT: do NOT downgrade isAdmin here (it causes random admin lockouts).
     const hardStop = window.setTimeout(() => {
-      setIsAdmin(false);
       setIsLoading(false);
-    }, 6000);
+    }, 8000);
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Any auth change means the app is alive; cancel the initial hard-stop.
+      clearTimeout(hardStop);
+
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -80,6 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
+        clearTimeout(hardStop);
+
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -95,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       })
       .catch(() => {
+        clearTimeout(hardStop);
         setIsAdmin(false);
         setIsLoading(false);
       });
