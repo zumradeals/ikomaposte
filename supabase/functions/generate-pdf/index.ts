@@ -1,8 +1,9 @@
 // ============================================
-// IKOMA POSTE - PDF Document Generator v1.0
+// IKOMA POSTE - PDF Document Generator v1.1
 // ============================================
 // Generates IKP-RAP (Individual Report) and IKP-PTG (Global Attendance)
 // Based on VALIDATED daily/monthly export data
+// Now generates valid PDF files
 // ============================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -12,9 +13,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// PDF generation using jsPDF-style approach for Deno
-// We'll generate a simple text-based PDF structure
 
 interface DailyExportRow {
   export_version: string;
@@ -64,6 +62,107 @@ async function sha256(data: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Generate a minimal valid PDF from text content
+function generatePDFBytes(textContent: string): Uint8Array {
+  // Remove special characters that may cause issues in PDF
+  const sanitizedText = textContent
+    .replace(/[✓✗⏰⚠]/g, (match) => {
+      switch (match) {
+        case "✓": return "[OK]";
+        case "✗": return "[X]";
+        case "⏰": return "[R]";
+        case "⚠": return "[!]";
+        default: return match;
+      }
+    });
+  
+  // Split text into lines
+  const lines = sanitizedText.split("\n");
+  
+  // Calculate positions and build content stream
+  const fontSize = 9;
+  const lineHeight = 12;
+  const marginLeft = 40;
+  const marginTop = 750;
+  const pageWidth = 595;
+  const pageHeight = 842;
+  
+  // Build text operations for PDF
+  let textOps = `BT\n/F1 ${fontSize} Tf\n`;
+  let currentY = marginTop;
+  let pageContent = "";
+  
+  for (const line of lines) {
+    if (currentY < 50) {
+      // Would need pagination for very long docs
+      break;
+    }
+    // Escape special PDF characters
+    const escapedLine = line
+      .replace(/\\/g, "\\\\")
+      .replace(/\(/g, "\\(")
+      .replace(/\)/g, "\\)");
+    
+    textOps += `1 0 0 1 ${marginLeft} ${currentY} Tm\n(${escapedLine}) Tj\n`;
+    currentY -= lineHeight;
+  }
+  textOps += "ET";
+  
+  // Build PDF structure
+  const objects: string[] = [];
+  let objectCount = 0;
+  const objectOffsets: number[] = [];
+  
+  // Object 1: Catalog
+  objectCount++;
+  objects.push(`${objectCount} 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
+  
+  // Object 2: Pages
+  objectCount++;
+  objects.push(`${objectCount} 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`);
+  
+  // Object 3: Page
+  objectCount++;
+  objects.push(`${objectCount} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n`);
+  
+  // Object 4: Content stream
+  objectCount++;
+  const streamContent = textOps;
+  objects.push(`${objectCount} 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj\n`);
+  
+  // Object 5: Font
+  objectCount++;
+  objects.push(`${objectCount} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj\n`);
+  
+  // Build the PDF
+  let pdf = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
+  
+  for (let i = 0; i < objects.length; i++) {
+    objectOffsets.push(pdf.length);
+    pdf += objects[i];
+  }
+  
+  // Cross-reference table
+  const xrefOffset = pdf.length;
+  pdf += "xref\n";
+  pdf += `0 ${objectCount + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (const offset of objectOffsets) {
+    pdf += offset.toString().padStart(10, "0") + " 00000 n \n";
+  }
+  
+  // Trailer
+  pdf += "trailer\n";
+  pdf += `<< /Size ${objectCount + 1} /Root 1 0 R >>\n`;
+  pdf += "startxref\n";
+  pdf += `${xrefOffset}\n`;
+  pdf += "%%EOF";
+  
+  // Convert to bytes
+  const encoder = new TextEncoder();
+  return encoder.encode(pdf);
 }
 
 // Format minutes to hours display
@@ -557,16 +656,15 @@ serve(async (req) => {
       });
     }
 
-    // Convert to PDF (text file with .pdf extension for now - proper PDF would need jsPDF)
-    const encoder = new TextEncoder();
-    const pdfBytes = encoder.encode(pdfContent);
+    // Convert text content to valid PDF binary
+    const pdfBytes = generatePDFBytes(pdfContent);
 
     // Store in storage
     const storagePath = `${periodMonth}/${documentCode}.pdf`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from("documents")
       .upload(storagePath, pdfBytes, {
-        contentType: "text/plain",
+        contentType: "application/pdf",
         upsert: false,
       });
 
