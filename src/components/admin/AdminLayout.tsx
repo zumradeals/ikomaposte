@@ -24,7 +24,8 @@ import {
   Calendar,
   ClipboardCheck,
   FileText,
-  RotateCcw
+  RotateCcw,
+  History as HistoryIcon
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -46,6 +47,7 @@ const navItems = [
   { path: '/admin/rotation', label: 'Rotation', icon: RotateCcw },
   { path: '/admin/policies', label: 'Politiques', icon: FileText },
   { path: '/admin/workers', label: 'Travailleurs', icon: Users },
+  { path: '/admin/audit', label: 'Audit', icon: HistoryIcon },
   { path: '/admin/security', label: 'Sécurité', icon: Shield },
   { path: '/admin/diagnostic', label: 'Diagnostic', icon: Stethoscope },
 ];
