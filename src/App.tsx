@@ -21,6 +21,7 @@ import AdminExports from "./pages/AdminExports";
 import AdminSecurity from "./pages/AdminSecurity";
 import AdminSecuritySetup from "./pages/AdminSecuritySetup";
 import AdminSchedules from "./pages/AdminSchedules";
+import AdminRotation from "./pages/AdminRotation";
 import AdminValidation from "./pages/AdminValidation";
 import AdminPolicies from "./pages/AdminPolicies";
 import VerifyDocument from "./pages/VerifyDocument";
@@ -85,6 +86,7 @@ const App = () => {
                 <Route path="/admin/devices" element={<AdminDevices />} />
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/schedules" element={<AdminSchedules />} />
+                <Route path="/admin/rotation" element={<AdminRotation />} />
                 <Route path="/admin/policies" element={<AdminPolicies />} />
                 <Route path="/admin/validation" element={<AdminValidation />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
