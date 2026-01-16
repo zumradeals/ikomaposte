@@ -1,6 +1,6 @@
 // ============================================
-// IKOMA Working Time Policies Engine v3.0
-// Type Definitions
+// IKOMA Working Time Policies Engine v4.0
+// Enhanced Model with Audit Replay Support
 // ============================================
 
 // ----------------------
@@ -18,9 +18,13 @@ export type RuleType =
 
 export type RoundingMode = 
   | 'NONE'           // Exact time (no rounding)
-  | 'QUARTER_CEIL'   // Round up to 15min
-  | 'QUARTER_FLOOR'  // Round down to 15min
-  | 'QUARTER_NEAREST'; // Round to nearest 15min
+  | 'NEAREST'        // Round to nearest step
+  | 'FLOOR'          // Round down
+  | 'CEIL'           // Round up
+  // Legacy (still supported)
+  | 'QUARTER_CEIL'   
+  | 'QUARTER_FLOOR'  
+  | 'QUARTER_NEAREST';
 
 export type PolicyStatus = 
   | 'DRAFT'      // Being configured
@@ -40,6 +44,17 @@ export type CrossDayStrategy =
   | 'MERGE_TO_START_DAY'  // Night shift counts for start day
   | 'MERGE_TO_END_DAY'    // Night shift counts for end day
   | 'SPLIT_AT_MIDNIGHT';  // Split at midnight (not recommended)
+
+export type PolicyScopeType = 
+  | 'individual'   // Applies to a specific worker
+  | 'team'         // Applies to a team
+  | 'category'     // Applies to a worker category
+  | 'default';     // Default policy (applies to all)
+
+export type OvertimeMode = 
+  | 'DAILY'           // Overtime calculated per day
+  | 'WEEKLY'          // Overtime calculated per week
+  | 'OUTSIDE_SCHEDULE'; // Any time outside scheduled hours
 
 // ----------------------
 // Rule Configuration Types
@@ -119,20 +134,116 @@ export type RuleConfig =
   | RotationRuleConfig;
 
 // ----------------------
+// v4.0 Enhanced Types
+// ----------------------
+
+/** Time slot within a weekday pattern */
+export interface TimeSlot {
+  start_time: string;         // HH:MM format
+  end_time: string;           // HH:MM format
+  allow_cross_day: boolean;   // Allows end_time < start_time (night shift)
+}
+
+/** Weekday configuration in week pattern */
+export interface WeekdayConfig {
+  working_day: boolean;
+  time_slots: TimeSlot[];
+}
+
+/** Week pattern - defines working hours for each day */
+export interface WeekPattern {
+  monday: WeekdayConfig;
+  tuesday: WeekdayConfig;
+  wednesday: WeekdayConfig;
+  thursday: WeekdayConfig;
+  friday: WeekdayConfig;
+  saturday: WeekdayConfig;
+  sunday: WeekdayConfig;
+}
+
+/** Per-day tolerance override */
+export interface DayToleranceOverride {
+  day: keyof WeekPattern;
+  late_grace_minutes: number;
+  early_leave_grace_minutes: number;
+}
+
+/** Tolerances configuration */
+export interface TolerancesConfig {
+  late_grace_minutes: number;
+  early_leave_grace_minutes: number;
+  day_overrides: Record<string, DayToleranceOverride>;
+}
+
+/** Rounding rules configuration */
+export interface RoundingRulesConfig {
+  mode: RoundingMode;
+  step_minutes: number;               // e.g., 15
+  apply_to: ('worked_time' | 'overtime_time')[];
+}
+
+/** Overtime rules configuration */
+export interface OvertimeRulesConfig {
+  mode: OvertimeMode;
+  threshold_hours: number;
+  approval_required: boolean;
+}
+
+/** Policy scope - defines who this policy applies to */
+export interface PolicyScope {
+  id: string;
+  policy_id: string;
+  scope_type: PolicyScopeType;
+  target_id: string | null;   // NULL for 'default' scope
+  priority: number;           // Higher priority wins in conflicts
+  created_at: string;
+}
+
+/** Policy audit trail entry */
+export interface PolicyAuditEntry {
+  id: string;
+  policy_id: string;
+  action: 'created' | 'activated' | 'archived' | 'version_bumped';
+  previous_state: Record<string, unknown> | null;
+  new_state: Record<string, unknown>;
+  changed_by: string;
+  changed_at: string;
+  justification: string | null;
+  version_at_change: number;
+  status_at_change: PolicyStatus;
+}
+
+// ----------------------
 // Entity Types
 // ----------------------
 
-/** Time Policy (master container) */
+/** Time Policy v4.0 (comprehensive model) */
 export interface TimePolicy {
   id: string;
   code: string;
   name: string;
   description: string | null;
+  // v4.0 fields
+  version: number;
+  status: PolicyStatus;
+  timezone: string;
+  valid_from: string | null;
+  valid_to: string | null;
+  week_pattern: WeekPattern;
+  tolerances: TolerancesConfig;
+  rounding_rules: RoundingRulesConfig;
+  overtime_rules: OvertimeRulesConfig;
+  justification: string | null;
+  immutable_when_active: boolean;
+  // Legacy compatibility
   applies_to_category_id: string | null;
   is_active: boolean;
+  // Audit
   created_at: string;
   created_by: string;
   updated_at: string;
+  // Relations (optional, loaded separately)
+  scopes?: PolicyScope[];
 }
 
 /** Policy Version (immutable snapshot) */
@@ -391,9 +502,33 @@ export const SHIFT_PATTERN_LABELS: Record<ShiftPatternType, string> = {
 
 export const ROUNDING_MODE_LABELS: Record<RoundingMode, string> = {
   NONE: 'Aucun',
+  NEAREST: 'Arrondi au plus proche',
+  FLOOR: 'Arrondi inférieur',
+  CEIL: 'Arrondi supérieur',
+  // Legacy support
   QUARTER_CEIL: 'Arrondi supérieur (15min)',
   QUARTER_FLOOR: 'Arrondi inférieur (15min)',
   QUARTER_NEAREST: 'Arrondi au plus proche (15min)',
+};
+
+export const OVERTIME_MODE_LABELS: Record<OvertimeMode, string> = {
+  DAILY: 'Journalier',
+  WEEKLY: 'Hebdomadaire',
+  OUTSIDE_SCHEDULE: 'Hors horaire planifié',
+};
+
+export const SCOPE_TYPE_LABELS: Record<PolicyScopeType, string> = {
+  individual: 'Individuel',
+  team: 'Équipe',
+  category: 'Catégorie',
+  default: 'Par défaut',
+};
+
+export const SCOPE_TYPE_PRIORITY: Record<PolicyScopeType, number> = {
+  individual: 100,
+  team: 75,
+  category: 50,
+  default: 0,
 };
 
 export const CROSS_DAY_STRATEGY_LABELS: Record<CrossDayStrategy, string> = {

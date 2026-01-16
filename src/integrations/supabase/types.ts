@@ -390,6 +390,53 @@ export type Database = {
           },
         ]
       }
+      policy_audit_trail: {
+        Row: {
+          action: string
+          changed_at: string | null
+          changed_by: string
+          id: string
+          justification: string | null
+          new_state: Json | null
+          policy_id: string
+          previous_state: Json | null
+          status_at_change: Database["public"]["Enums"]["policy_status"]
+          version_at_change: number
+        }
+        Insert: {
+          action: string
+          changed_at?: string | null
+          changed_by: string
+          id?: string
+          justification?: string | null
+          new_state?: Json | null
+          policy_id: string
+          previous_state?: Json | null
+          status_at_change: Database["public"]["Enums"]["policy_status"]
+          version_at_change: number
+        }
+        Update: {
+          action?: string
+          changed_at?: string | null
+          changed_by?: string
+          id?: string
+          justification?: string | null
+          new_state?: Json | null
+          policy_id?: string
+          previous_state?: Json | null
+          status_at_change?: Database["public"]["Enums"]["policy_status"]
+          version_at_change?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_audit_trail_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "time_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       policy_conflicts: {
         Row: {
           conflict_type: string
@@ -484,6 +531,41 @@ export type Database = {
             columns: ["shift_pattern_id"]
             isOneToOne: false
             referencedRelation: "shift_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_scopes: {
+        Row: {
+          created_at: string | null
+          id: string
+          policy_id: string
+          priority: number | null
+          scope_type: Database["public"]["Enums"]["policy_scope_type"]
+          target_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          policy_id: string
+          priority?: number | null
+          scope_type: Database["public"]["Enums"]["policy_scope_type"]
+          target_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          policy_id?: string
+          priority?: number | null
+          scope_type?: Database["public"]["Enums"]["policy_scope_type"]
+          target_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_scopes_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "time_policies"
             referencedColumns: ["id"]
           },
         ]
@@ -645,9 +727,20 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          immutable_when_active: boolean | null
           is_active: boolean
+          justification: string | null
           name: string
+          overtime_rules: Json | null
+          rounding_rules: Json | null
+          status: Database["public"]["Enums"]["policy_status"] | null
+          timezone: string | null
+          tolerances: Json | null
           updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+          version: number | null
+          week_pattern: Json | null
         }
         Insert: {
           applies_to_category_id?: string | null
@@ -656,9 +749,20 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          immutable_when_active?: boolean | null
           is_active?: boolean
+          justification?: string | null
           name: string
+          overtime_rules?: Json | null
+          rounding_rules?: Json | null
+          status?: Database["public"]["Enums"]["policy_status"] | null
+          timezone?: string | null
+          tolerances?: Json | null
           updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          version?: number | null
+          week_pattern?: Json | null
         }
         Update: {
           applies_to_category_id?: string | null
@@ -667,9 +771,20 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          immutable_when_active?: boolean | null
           is_active?: boolean
+          justification?: string | null
           name?: string
+          overtime_rules?: Json | null
+          rounding_rules?: Json | null
+          status?: Database["public"]["Enums"]["policy_status"] | null
+          timezone?: string | null
+          tolerances?: Json | null
           updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          version?: number | null
+          week_pattern?: Json | null
         }
         Relationships: [
           {
@@ -984,6 +1099,68 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_policy: {
+        Args: { p_justification?: string; p_policy_id: string }
+        Returns: {
+          applies_to_category_id: string | null
+          code: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          immutable_when_active: boolean | null
+          is_active: boolean
+          justification: string | null
+          name: string
+          overtime_rules: Json | null
+          rounding_rules: Json | null
+          status: Database["public"]["Enums"]["policy_status"] | null
+          timezone: string | null
+          tolerances: Json | null
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+          version: number | null
+          week_pattern: Json | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "time_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      bump_policy_version: {
+        Args: { p_changes: Json; p_justification: string; p_policy_id: string }
+        Returns: {
+          applies_to_category_id: string | null
+          code: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          immutable_when_active: boolean | null
+          is_active: boolean
+          justification: string | null
+          name: string
+          overtime_rules: Json | null
+          rounding_rules: Json | null
+          status: Database["public"]["Enums"]["policy_status"] | null
+          timezone: string | null
+          tolerances: Json | null
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+          version: number | null
+          week_pattern: Json | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "time_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_modify_document: { Args: { p_document_id: string }; Returns: boolean }
       check_policy_conflicts: {
         Args: { p_work_date: string; p_worker_id: string }
@@ -1084,6 +1261,22 @@ export type Database = {
           version_number: number
         }[]
       }
+      get_effective_policy: {
+        Args: { p_work_date: string; p_worker_id: string }
+        Returns: {
+          overtime_rules: Json
+          policy_code: string
+          policy_id: string
+          policy_name: string
+          rounding_rules: Json
+          scope_priority: number
+          scope_type: Database["public"]["Enums"]["policy_scope_type"]
+          timezone: string
+          tolerances: Json
+          version: number
+          week_pattern: Json
+        }[]
+      }
       get_next_document_sequence: {
         Args: {
           p_document_type: Database["public"]["Enums"]["document_type"]
@@ -1100,6 +1293,10 @@ export type Database = {
       }
       hr_validate_summaries: {
         Args: { p_summary_ids: string[] }
+        Returns: Json
+      }
+      replay_policy_at: {
+        Args: { p_policy_id: string; p_timestamp: string }
         Returns: Json
       }
       revoke_document: {
@@ -1257,6 +1454,8 @@ export type Database = {
       day_status: "PRESENT" | "RETARD" | "ABSENT" | "ANOMALIE"
       document_status: "DRAFT_PDF" | "SIGNED" | "REVOKED"
       document_type: "RAP" | "PTG"
+      overtime_mode: "DAILY" | "WEEKLY" | "OUTSIDE_SCHEDULE"
+      policy_scope_type: "individual" | "team" | "category" | "default"
       policy_status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "ARCHIVED"
       rounding_mode:
         | "NONE"
@@ -1446,6 +1645,8 @@ export const Constants = {
       day_status: ["PRESENT", "RETARD", "ABSENT", "ANOMALIE"],
       document_status: ["DRAFT_PDF", "SIGNED", "REVOKED"],
       document_type: ["RAP", "PTG"],
+      overtime_mode: ["DAILY", "WEEKLY", "OUTSIDE_SCHEDULE"],
+      policy_scope_type: ["individual", "team", "category", "default"],
       policy_status: ["DRAFT", "ACTIVE", "SUPERSEDED", "ARCHIVED"],
       rounding_mode: [
         "NONE",
