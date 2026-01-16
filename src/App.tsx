@@ -24,6 +24,7 @@ import AdminSchedules from "./pages/AdminSchedules";
 import AdminRotation from "./pages/AdminRotation";
 import AdminValidation from "./pages/AdminValidation";
 import AdminPolicies from "./pages/AdminPolicies";
+import AdminAudit from "./pages/AdminAudit";
 import VerifyDocument from "./pages/VerifyDocument";
 
 const queryClient = new QueryClient();
@@ -89,6 +90,7 @@ const App = () => {
                 <Route path="/admin/rotation" element={<AdminRotation />} />
                 <Route path="/admin/policies" element={<AdminPolicies />} />
                 <Route path="/admin/validation" element={<AdminValidation />} />
+                <Route path="/admin/audit" element={<AdminAudit />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
                 <Route path="/admin/diagnostic" element={<AdminDiagnostic />} />
                 <Route path="/admin/security" element={<AdminSecurity />} />
