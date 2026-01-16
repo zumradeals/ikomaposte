@@ -80,6 +80,85 @@ export type Database = {
         }
         Relationships: []
       }
+      calculation_traces: {
+        Row: {
+          anomaly_reason: string | null
+          calculation_inputs: Json
+          calculation_outputs: Json
+          conflicts_detected: Json | null
+          created_at: string
+          decision_path: string
+          id: string
+          overtime_breakdown: Json | null
+          policy_version_id: string | null
+          raw_punches: Json
+          rounded_punches: Json | null
+          rounding_details: Json | null
+          rules_applied: Json
+          summary_id: string
+          work_date: string
+          worker_id: string
+        }
+        Insert: {
+          anomaly_reason?: string | null
+          calculation_inputs: Json
+          calculation_outputs: Json
+          conflicts_detected?: Json | null
+          created_at?: string
+          decision_path: string
+          id?: string
+          overtime_breakdown?: Json | null
+          policy_version_id?: string | null
+          raw_punches: Json
+          rounded_punches?: Json | null
+          rounding_details?: Json | null
+          rules_applied?: Json
+          summary_id: string
+          work_date: string
+          worker_id: string
+        }
+        Update: {
+          anomaly_reason?: string | null
+          calculation_inputs?: Json
+          calculation_outputs?: Json
+          conflicts_detected?: Json | null
+          created_at?: string
+          decision_path?: string
+          id?: string
+          overtime_breakdown?: Json | null
+          policy_version_id?: string | null
+          raw_punches?: Json
+          rounded_punches?: Json | null
+          rounding_details?: Json | null
+          rules_applied?: Json
+          summary_id?: string
+          work_date?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculation_traces_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "policy_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calculation_traces_summary_id_fkey"
+            columns: ["summary_id"]
+            isOneToOne: false
+            referencedRelation: "work_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calculation_traces_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           actif: boolean
@@ -311,6 +390,297 @@ export type Database = {
           },
         ]
       }
+      policy_conflicts: {
+        Row: {
+          conflict_type: string
+          conflicting_policies: Json
+          created_at: string
+          description: string
+          id: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          work_date: string
+          worker_id: string
+        }
+        Insert: {
+          conflict_type: string
+          conflicting_policies: Json
+          created_at?: string
+          description: string
+          id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          work_date: string
+          worker_id: string
+        }
+        Update: {
+          conflict_type?: string
+          conflicting_policies?: Json
+          created_at?: string
+          description?: string
+          id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          work_date?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_conflicts_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_rules: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          policy_version_id: string
+          priority: number
+          rule_type: Database["public"]["Enums"]["rule_type"]
+          shift_pattern_id: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          policy_version_id: string
+          priority?: number
+          rule_type: Database["public"]["Enums"]["rule_type"]
+          shift_pattern_id?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          policy_version_id?: string
+          priority?: number
+          rule_type?: Database["public"]["Enums"]["rule_type"]
+          shift_pattern_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_rules_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "policy_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_rules_shift_pattern_id_fkey"
+            columns: ["shift_pattern_id"]
+            isOneToOne: false
+            referencedRelation: "shift_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_versions: {
+        Row: {
+          change_reason: string | null
+          created_at: string
+          created_by: string
+          id: string
+          policy_id: string
+          rules_snapshot: Json
+          status: Database["public"]["Enums"]["policy_status"]
+          superseded_by: string | null
+          valid_from: string
+          valid_to: string | null
+          version_number: number
+        }
+        Insert: {
+          change_reason?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          policy_id: string
+          rules_snapshot?: Json
+          status?: Database["public"]["Enums"]["policy_status"]
+          superseded_by?: string | null
+          valid_from: string
+          valid_to?: string | null
+          version_number: number
+        }
+        Update: {
+          change_reason?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          policy_id?: string
+          rules_snapshot?: Json
+          status?: Database["public"]["Enums"]["policy_status"]
+          superseded_by?: string | null
+          valid_from?: string
+          valid_to?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_versions_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "time_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_versions_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "policy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotation_calendars: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          is_active: boolean
+          name: string
+          policy_id: string
+          rotation_pattern: Json
+          start_date: string
+          team_assignments: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          policy_id: string
+          rotation_pattern: Json
+          start_date: string
+          team_assignments?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          policy_id?: string
+          rotation_pattern?: Json
+          start_date?: string
+          team_assignments?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotation_calendars_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "time_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_patterns: {
+        Row: {
+          code: string
+          created_at: string
+          cross_day: boolean
+          cross_day_strategy:
+            | Database["public"]["Enums"]["cross_day_strategy"]
+            | null
+          id: string
+          is_active: boolean
+          name: string
+          pattern_type: Database["public"]["Enums"]["shift_pattern_type"]
+          shifts: Json
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          cross_day?: boolean
+          cross_day_strategy?:
+            | Database["public"]["Enums"]["cross_day_strategy"]
+            | null
+          id?: string
+          is_active?: boolean
+          name: string
+          pattern_type: Database["public"]["Enums"]["shift_pattern_type"]
+          shifts?: Json
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          cross_day?: boolean
+          cross_day_strategy?:
+            | Database["public"]["Enums"]["cross_day_strategy"]
+            | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          pattern_type?: Database["public"]["Enums"]["shift_pattern_type"]
+          shifts?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      time_policies: {
+        Row: {
+          applies_to_category_id: string | null
+          code: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          applies_to_category_id?: string | null
+          code: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          applies_to_category_id?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_policies_applies_to_category_id_fkey"
+            columns: ["applies_to_category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -456,6 +826,7 @@ export type Database = {
           locked_at: string | null
           locked_by: string | null
           notes: string | null
+          policy_version_id: string | null
           revision: number
           segments_json: Json | null
           supersedes_id: string | null
@@ -490,6 +861,7 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           notes?: string | null
+          policy_version_id?: string | null
           revision?: number
           segments_json?: Json | null
           supersedes_id?: string | null
@@ -524,6 +896,7 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           notes?: string | null
+          policy_version_id?: string | null
           revision?: number
           segments_json?: Json | null
           supersedes_id?: string | null
@@ -539,6 +912,13 @@ export type Database = {
           worker_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "work_summaries_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "policy_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_summaries_supersedes_id_fkey"
             columns: ["supersedes_id"]
@@ -605,6 +985,37 @@ export type Database = {
     }
     Functions: {
       can_modify_document: { Args: { p_document_id: string }; Returns: boolean }
+      check_policy_conflicts: {
+        Args: { p_work_date: string; p_worker_id: string }
+        Returns: Json
+      }
+      create_policy_version: {
+        Args: {
+          p_change_reason?: string
+          p_policy_id: string
+          p_rules: Json
+          p_valid_from: string
+        }
+        Returns: {
+          change_reason: string | null
+          created_at: string
+          created_by: string
+          id: string
+          policy_id: string
+          rules_snapshot: Json
+          status: Database["public"]["Enums"]["policy_status"]
+          superseded_by: string | null
+          valid_from: string
+          valid_to: string | null
+          version_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "policy_versions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_summary_version: {
         Args: {
           p_auto_close_time: string
@@ -641,6 +1052,7 @@ export type Database = {
           locked_at: string | null
           locked_by: string | null
           notes: string | null
+          policy_version_id: string | null
           revision: number
           segments_json: Json | null
           supersedes_id: string | null
@@ -661,6 +1073,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      get_applicable_policy: {
+        Args: { p_work_date: string; p_worker_id: string }
+        Returns: {
+          policy_code: string
+          policy_id: string
+          policy_version_id: string
+          rules_snapshot: Json
+          version_number: number
+        }[]
       }
       get_next_document_sequence: {
         Args: {
@@ -777,6 +1199,7 @@ export type Database = {
           locked_at: string | null
           locked_by: string | null
           notes: string | null
+          policy_version_id: string | null
           revision: number
           segments_json: Json | null
           supersedes_id: string | null
@@ -827,9 +1250,34 @@ export type Database = {
         | "mark_absent"
         | "mark_complete"
         | "other"
+      cross_day_strategy:
+        | "MERGE_TO_START_DAY"
+        | "MERGE_TO_END_DAY"
+        | "SPLIT_AT_MIDNIGHT"
       day_status: "PRESENT" | "RETARD" | "ABSENT" | "ANOMALIE"
       document_status: "DRAFT_PDF" | "SIGNED" | "REVOKED"
       document_type: "RAP" | "PTG"
+      policy_status: "DRAFT" | "ACTIVE" | "SUPERSEDED" | "ARCHIVED"
+      rounding_mode:
+        | "NONE"
+        | "QUARTER_CEIL"
+        | "QUARTER_FLOOR"
+        | "QUARTER_NEAREST"
+      rule_type:
+        | "SCHEDULE"
+        | "ROUNDING"
+        | "TOLERANCE"
+        | "OVERTIME"
+        | "NIGHT_SHIFT"
+        | "BREAK"
+        | "ROTATION"
+      shift_pattern_type:
+        | "DAY"
+        | "MORNING"
+        | "AFTERNOON"
+        | "NIGHT"
+        | "FLEX"
+        | "ROTATING"
       signature_level: "VISUAL" | "SEALED" | "BOTH"
       validation_status: "DRAFT" | "VALIDATED"
       work_event_type: "TAKE" | "PAUSE" | "RESUME" | "END"
@@ -990,9 +1438,38 @@ export const Constants = {
         "mark_complete",
         "other",
       ],
+      cross_day_strategy: [
+        "MERGE_TO_START_DAY",
+        "MERGE_TO_END_DAY",
+        "SPLIT_AT_MIDNIGHT",
+      ],
       day_status: ["PRESENT", "RETARD", "ABSENT", "ANOMALIE"],
       document_status: ["DRAFT_PDF", "SIGNED", "REVOKED"],
       document_type: ["RAP", "PTG"],
+      policy_status: ["DRAFT", "ACTIVE", "SUPERSEDED", "ARCHIVED"],
+      rounding_mode: [
+        "NONE",
+        "QUARTER_CEIL",
+        "QUARTER_FLOOR",
+        "QUARTER_NEAREST",
+      ],
+      rule_type: [
+        "SCHEDULE",
+        "ROUNDING",
+        "TOLERANCE",
+        "OVERTIME",
+        "NIGHT_SHIFT",
+        "BREAK",
+        "ROTATION",
+      ],
+      shift_pattern_type: [
+        "DAY",
+        "MORNING",
+        "AFTERNOON",
+        "NIGHT",
+        "FLEX",
+        "ROTATING",
+      ],
       signature_level: ["VISUAL", "SEALED", "BOTH"],
       validation_status: ["DRAFT", "VALIDATED"],
       work_event_type: ["TAKE", "PAUSE", "RESUME", "END"],
