@@ -1,5 +1,6 @@
 // Phase 4: Work Summaries Hooks
 // Build #1: Versioning + Anti-écrasement + Corrections appliquées
+// Updated: Production Day support (07:00-07:00 cycle)
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +10,7 @@ import { WorkEvent } from '@/types/work-events';
 import { CorrectionEvent } from '@/types/corrections';
 import { calculateWorkerDay } from '@/lib/work-calculator';
 import { format, startOfDay, endOfDay } from 'date-fns';
+import { getProductionDayBoundaries, getProductionDate, DEFAULT_TIMEZONE } from '@/lib/production-day';
 
 // Get summaries for a date range (only current versions)
 export function useSummaries(startDate: Date, endDate: Date) {
@@ -125,19 +127,21 @@ export function useWorkerSummary(workerId: string, date: Date) {
 }
 
 // Get events for a specific worker and date (for detail view)
+// Uses production day boundaries (07:00-07:00) for proper night shift handling
 export function useWorkerDayEventsForDate(workerId: string, date: Date) {
   return useQuery({
     queryKey: ['worker-day-events-date', workerId, format(date, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const dayStart = startOfDay(date);
-      const dayEnd = endOfDay(date);
+      // Get production day boundaries (07:00 to 07:00 next day)
+      const productionDateStr = getProductionDate(date, DEFAULT_TIMEZONE).production_date;
+      const boundaries = getProductionDayBoundaries(productionDateStr, DEFAULT_TIMEZONE);
 
       const { data, error } = await supabase
         .from('work_events')
         .select('*')
         .eq('worker_id', workerId)
-        .gte('occurred_at', dayStart.toISOString())
-        .lte('occurred_at', dayEnd.toISOString())
+        .gte('occurred_at', boundaries.production_start.toISOString())
+        .lt('occurred_at', boundaries.production_end.toISOString())
         .order('occurred_at', { ascending: true });
 
       if (error) throw error;
@@ -280,16 +284,16 @@ export function useCalculateSummary() {
         );
       }
 
-      // Get events for the day
-      const dayStart = startOfDay(date);
-      const dayEnd = endOfDay(date);
+      // Get events for the production day (07:00 to 07:00)
+      const productionDateStr = getProductionDate(date, DEFAULT_TIMEZONE).production_date;
+      const boundaries = getProductionDayBoundaries(productionDateStr, DEFAULT_TIMEZONE);
 
       const { data: events, error: eventsError } = await supabase
         .from('work_events')
         .select('*')
         .eq('worker_id', workerId)
-        .gte('occurred_at', dayStart.toISOString())
-        .lte('occurred_at', dayEnd.toISOString())
+        .gte('occurred_at', boundaries.production_start.toISOString())
+        .lt('occurred_at', boundaries.production_end.toISOString())
         .order('occurred_at', { ascending: true });
 
       if (eventsError) throw eventsError;
@@ -304,7 +308,7 @@ export function useCalculateSummary() {
 
       if (correctionsError) throw correctionsError;
 
-      // Calculate with corrections applied
+      // Calculate with corrections applied (includes production_date)
       const result = calculateWorkerDay(
         events as WorkEvent[],
         (corrections || []) as CorrectionEvent[],
@@ -314,7 +318,9 @@ export function useCalculateSummary() {
         },
         date,
         autoCloseHour,
-        autoCloseMinute
+        autoCloseMinute,
+        undefined, // schedule
+        productionDateStr // explicit production date
       );
 
       if (!result.success || !result.summary) {

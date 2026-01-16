@@ -17,6 +17,8 @@ export interface WorkSummary {
   id: string;
   worker_id: string;
   work_date: string;
+  /** Production date (07:00-07:00 cycle) for all business calculations */
+  production_date?: string;
   total_work_minutes: number;
   total_pause_minutes: number;
   total_amount: number;
