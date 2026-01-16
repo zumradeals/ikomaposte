@@ -258,6 +258,97 @@ export async function queryAuditRecords(
 }
 
 /**
+ * Query audit records with filters and total count (for pagination)
+ */
+export async function queryAuditRecordsWithCount(
+  filter: AuditQueryFilter
+): Promise<{ records: CalculationAuditRecord[]; totalCount: number }> {
+  // First, get the count
+  let countQuery = supabase
+    .from('calculation_traces')
+    .select('*', { count: 'exact', head: true });
+
+  if (filter.worker_id) {
+    countQuery = countQuery.eq('worker_id', filter.worker_id);
+  }
+
+  if (filter.production_date_from) {
+    countQuery = countQuery.gte('work_date', filter.production_date_from);
+  }
+
+  if (filter.production_date_to) {
+    countQuery = countQuery.lte('work_date', filter.production_date_to);
+  }
+
+  if (filter.policy_id) {
+    countQuery = countQuery.eq('policy_version_id', filter.policy_id);
+  }
+
+  if (filter.has_anomaly !== undefined) {
+    if (filter.has_anomaly) {
+      countQuery = countQuery.not('anomaly_reason', 'is', null);
+    } else {
+      countQuery = countQuery.is('anomaly_reason', null);
+    }
+  }
+
+  const { count, error: countError } = await countQuery;
+
+  if (countError) {
+    console.error('[AuditTrail] Count error:', countError);
+    return { records: [], totalCount: 0 };
+  }
+
+  // Then get the data
+  let dataQuery = supabase
+    .from('calculation_traces')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (filter.worker_id) {
+    dataQuery = dataQuery.eq('worker_id', filter.worker_id);
+  }
+
+  if (filter.production_date_from) {
+    dataQuery = dataQuery.gte('work_date', filter.production_date_from);
+  }
+
+  if (filter.production_date_to) {
+    dataQuery = dataQuery.lte('work_date', filter.production_date_to);
+  }
+
+  if (filter.policy_id) {
+    dataQuery = dataQuery.eq('policy_version_id', filter.policy_id);
+  }
+
+  if (filter.has_anomaly !== undefined) {
+    if (filter.has_anomaly) {
+      dataQuery = dataQuery.not('anomaly_reason', 'is', null);
+    } else {
+      dataQuery = dataQuery.is('anomaly_reason', null);
+    }
+  }
+
+  if (filter.limit && filter.offset !== undefined) {
+    dataQuery = dataQuery.range(filter.offset, filter.offset + filter.limit - 1);
+  } else if (filter.limit) {
+    dataQuery = dataQuery.limit(filter.limit);
+  }
+
+  const { data, error } = await dataQuery;
+
+  if (error) {
+    console.error('[AuditTrail] Query error:', error);
+    return { records: [], totalCount: count || 0 };
+  }
+
+  return {
+    records: (data || []).map(parseAuditRecord),
+    totalCount: count || 0,
+  };
+}
+
+/**
  * Get audit summary for a period
  */
 export async function getAuditPeriodSummary(
@@ -458,6 +549,58 @@ export async function getPolicyChangesInRange(
     changed_at: row.changed_at || '',
     justification: row.justification,
   }));
+}
+
+/**
+ * Get policy changes with count (for pagination)
+ */
+export async function getPolicyChangesInRangeWithCount(
+  startDate: string,
+  endDate: string,
+  limit: number = 20,
+  offset: number = 0
+): Promise<{ changes: PolicyAuditEntry[]; totalCount: number }> {
+  // Get count
+  const { count, error: countError } = await supabase
+    .from('policy_audit_trail')
+    .select('*', { count: 'exact', head: true })
+    .gte('changed_at', startDate)
+    .lte('changed_at', endDate);
+
+  if (countError) {
+    console.error('[AuditTrail] Policy count error:', countError);
+    return { changes: [], totalCount: 0 };
+  }
+
+  // Get data
+  const { data, error } = await supabase
+    .from('policy_audit_trail')
+    .select('*')
+    .gte('changed_at', startDate)
+    .lte('changed_at', endDate)
+    .order('changed_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('[AuditTrail] Policy changes query error:', error);
+    return { changes: [], totalCount: count || 0 };
+  }
+
+  return {
+    changes: (data || []).map(row => ({
+      id: row.id,
+      policy_id: row.policy_id,
+      action: row.action as PolicyAuditEntry['action'],
+      version_at_change: row.version_at_change,
+      status_at_change: row.status_at_change,
+      previous_state: row.previous_state as Record<string, unknown> | null,
+      new_state: row.new_state as Record<string, unknown> | null,
+      changed_by: row.changed_by,
+      changed_at: row.changed_at || '',
+      justification: row.justification,
+    })),
+    totalCount: count || 0,
+  };
 }
 
 // ============================================

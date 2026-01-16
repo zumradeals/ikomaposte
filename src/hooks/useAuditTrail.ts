@@ -5,15 +5,17 @@
 // React hooks for accessing audit trail functionality
 //
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import {
   getCalculationAudit,
   queryAuditRecords,
+  queryAuditRecordsWithCount,
   getAuditPeriodSummary,
   replayCalculation,
   getPolicyAuditTrail,
   getPolicyChangesInRange,
+  getPolicyChangesInRangeWithCount,
   verifyEventIntegrity,
 } from '@/lib/audit-trail';
 import {
@@ -23,6 +25,26 @@ import {
   ReplayResult,
   PolicyAuditEntry,
 } from '@/types/audit-trail';
+
+// ============================================
+// PAGINATION TYPES
+// ============================================
+
+export interface PaginatedAuditRecords {
+  records: CalculationAuditRecord[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface PaginatedPolicyChanges {
+  changes: PolicyAuditEntry[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
 
 // ============================================
 // CALCULATION AUDIT HOOKS
@@ -40,13 +62,43 @@ export function useCalculationAudit(workerId: string | undefined, productionDate
 }
 
 /**
- * Query audit records with filters
+ * Query audit records with filters (no pagination)
  */
 export function useAuditRecords(filter: AuditQueryFilter) {
   return useQuery({
     queryKey: ['audit-records', filter],
     queryFn: () => queryAuditRecords(filter),
     enabled: !!(filter.worker_id || filter.production_date_from),
+  });
+}
+
+/**
+ * Query audit records with pagination
+ */
+export function usePaginatedAuditRecords(
+  filter: AuditQueryFilter,
+  page: number,
+  pageSize: number = 20
+) {
+  return useQuery({
+    queryKey: ['audit-records-paginated', filter, page, pageSize],
+    queryFn: async (): Promise<PaginatedAuditRecords> => {
+      const offset = (page - 1) * pageSize;
+      const { records, totalCount } = await queryAuditRecordsWithCount({
+        ...filter,
+        limit: pageSize,
+        offset,
+      });
+      return {
+        records,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+    },
+    enabled: !!(filter.worker_id || filter.production_date_from),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -132,6 +184,38 @@ export function usePolicyChanges(startDate: string | undefined, endDate: string 
     queryKey: ['policy-changes', startDate, endDate],
     queryFn: () => getPolicyChangesInRange(startDate!, endDate!),
     enabled: !!startDate && !!endDate,
+  });
+}
+
+/**
+ * Get policy changes with pagination
+ */
+export function usePaginatedPolicyChanges(
+  startDate: string | undefined,
+  endDate: string | undefined,
+  page: number,
+  pageSize: number = 20
+) {
+  return useQuery({
+    queryKey: ['policy-changes-paginated', startDate, endDate, page, pageSize],
+    queryFn: async (): Promise<PaginatedPolicyChanges> => {
+      const offset = (page - 1) * pageSize;
+      const { changes, totalCount } = await getPolicyChangesInRangeWithCount(
+        startDate!,
+        endDate!,
+        pageSize,
+        offset
+      );
+      return {
+        changes,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+    },
+    enabled: !!startDate && !!endDate,
+    placeholderData: keepPreviousData,
   });
 }
 
