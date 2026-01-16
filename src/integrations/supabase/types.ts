@@ -1383,6 +1383,25 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      select_policy_for_worker: {
+        Args: { p_production_date: string; p_worker_id: string }
+        Returns: {
+          conflict_detected: boolean
+          conflict_policies: Json
+          overtime_rules: Json
+          policy_code: string
+          policy_id: string
+          policy_name: string
+          policy_version_id: string
+          rounding_rules: Json
+          scope_priority: number
+          scope_type: Database["public"]["Enums"]["policy_scope_type"]
+          timezone: string
+          tolerances: Json
+          version: number
+          week_pattern: Json
+        }[]
+      }
       sign_document: {
         Args: {
           p_document_id: string
