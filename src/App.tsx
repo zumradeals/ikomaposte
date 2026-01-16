@@ -22,6 +22,7 @@ import AdminSecurity from "./pages/AdminSecurity";
 import AdminSecuritySetup from "./pages/AdminSecuritySetup";
 import AdminSchedules from "./pages/AdminSchedules";
 import AdminValidation from "./pages/AdminValidation";
+import AdminPolicies from "./pages/AdminPolicies";
 import VerifyDocument from "./pages/VerifyDocument";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,7 @@ const App = () => {
                 <Route path="/admin/devices" element={<AdminDevices />} />
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/schedules" element={<AdminSchedules />} />
+                <Route path="/admin/policies" element={<AdminPolicies />} />
                 <Route path="/admin/validation" element={<AdminValidation />} />
                 <Route path="/admin/workers" element={<AdminWorkers />} />
                 <Route path="/admin/diagnostic" element={<AdminDiagnostic />} />
