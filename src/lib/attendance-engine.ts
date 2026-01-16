@@ -682,6 +682,114 @@ function buildIncompletePunchResult(
 }
 
 // ============================================
+// ENHANCED CALCULATION WITH AUDIT TRAIL
+// ============================================
+
+import { saveCalculationAudit } from './audit-trail';
+import { getWorkerShiftInfo, WorkerShiftInfo } from './rotation-engine';
+import { WorkEvent } from '@/types/work-events';
+import { CorrectionEvent } from '@/types/corrections';
+
+/**
+ * Extended result with full audit context
+ */
+export interface EnhancedAttendanceResult extends AttendanceResult {
+  // Rotation context
+  rotation_info: WorkerShiftInfo | null;
+  
+  // Policy version for replay
+  policy_version_id: string | null;
+  
+  // Audit record ID (if saved)
+  audit_record_id: string | null;
+}
+
+/**
+ * Calculate daily attendance with full audit trail
+ * 
+ * This function:
+ * 1. Runs the standard attendance calculation
+ * 2. Fetches rotation context for the worker
+ * 3. Saves a complete audit record for replay capability
+ * 
+ * @param input Worker and date info
+ * @param punches Raw punch events (immutable)
+ * @param corrections Any corrections to apply
+ * @param summaryId Optional existing summary ID to link
+ * @param config Engine configuration
+ */
+export async function calculateDailyAttendanceWithAudit(
+  input: AttendanceCalculationInput,
+  punches: WorkEvent[],
+  corrections: CorrectionEvent[],
+  summaryId: string | null = null,
+  config: AttendanceEngineConfig = DEFAULT_ENGINE_CONFIG
+): Promise<EnhancedAttendanceResult> {
+  // Convert WorkEvents to PunchEvents for calculation
+  const punchEvents: PunchEvent[] = punches.map(p => ({
+    id: p.id,
+    event_type: p.event_type,
+    occurred_at: p.occurred_at,
+    trust_status: p.trust_status,
+  }));
+  
+  // Run standard calculation
+  const result = await calculateDailyAttendance(input, punchEvents, config);
+  
+  // Fetch rotation context
+  let rotationInfo: WorkerShiftInfo | null = null;
+  try {
+    rotationInfo = await getWorkerShiftInfo(input.worker_id, input.production_date);
+  } catch (err) {
+    console.warn('[AttendanceEngine] Failed to fetch rotation info:', err);
+  }
+  
+  // Build enhanced result
+  const enhancedResult: EnhancedAttendanceResult = {
+    ...result,
+    rotation_info: rotationInfo,
+    policy_version_id: result.policy ? (result.policy as PolicyReference & { policy_version_id?: string }).policy_version_id || null : null,
+    audit_record_id: null,
+  };
+  
+  // Save audit trail if we have a summary ID
+  if (summaryId) {
+    try {
+      const auditId = await saveCalculationAudit({
+        summaryId,
+        workerId: input.worker_id,
+        productionDate: input.production_date,
+        workDate: input.production_date,
+        attendanceResult: result,
+        policy: result.policy ? {
+          policy_id: result.policy.policy_id,
+          policy_version_id: null,
+          policy_name: result.policy.policy_name,
+          policy_code: result.policy.policy_code,
+          version: result.policy.version,
+          scope_type: result.policy.scope_type,
+          scope_priority: 0,
+          week_pattern: {} as any,
+          tolerances: {} as any,
+          rounding_rules: {} as any,
+          overtime_rules: {} as any,
+          timezone: 'Africa/Abidjan',
+        } : null,
+        rotationInfo,
+        punches,
+        corrections,
+        decisionPath: result.decision_path,
+      });
+      enhancedResult.audit_record_id = auditId;
+    } catch (err) {
+      console.error('[AttendanceEngine] Failed to save audit:', err);
+    }
+  }
+  
+  return enhancedResult;
+}
+
+// ============================================
 // UTILITY EXPORTS
 // ============================================
 
