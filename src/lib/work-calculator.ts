@@ -32,6 +32,12 @@ import {
 } from './decision-table';
 import { WorkSchedule, DayStatusType, AnomalyCodeType } from '@/types/business-rules';
 import { getProductionDate, getProductionDayBoundaries, DEFAULT_TIMEZONE } from './production-day';
+import { 
+  TeamShiftAssignment, 
+  ShiftCode, 
+  TeamCode,
+  getWorkerShiftInfo 
+} from './rotation-engine';
 
 interface WorkerCategory {
   taux_horaire: number;
@@ -57,6 +63,12 @@ export interface CalculationResultPhase7 extends CalculationResult {
   late_minutes?: number;
   /** Production date used for this calculation */
   production_date?: string;
+  /** Expected shift from rotation engine (if worker has team assignment) */
+  expected_shift?: TeamShiftAssignment | null;
+  /** Worker's team code (if assigned) */
+  team_code?: TeamCode | null;
+  /** Whether this is a weekend day */
+  is_weekend?: boolean;
 }
 
 /**
@@ -480,4 +492,54 @@ export function formatAmount(amount: number, devise: string): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+/**
+ * Calculate worker day WITH rotation integration
+ * This enriches the calculation result with expected shift info from the rotation engine
+ */
+export async function calculateWorkerDayWithRotation(
+  workerId: string,
+  events: WorkEvent[],
+  corrections: CorrectionEvent[],
+  category: WorkerCategory,
+  workDate: Date,
+  autoCloseHour?: number,
+  autoCloseMinute?: number,
+  schedule?: WorkSchedule | null,
+  productionDate?: string
+): Promise<CalculationResultPhase7> {
+  // Calculate production date if not provided
+  const effectiveProductionDate = productionDate || 
+    getProductionDate(workDate, DEFAULT_TIMEZONE).production_date;
+
+  // Get base calculation
+  const result = calculateWorkerDay(
+    events,
+    corrections,
+    category,
+    workDate,
+    autoCloseHour,
+    autoCloseMinute,
+    schedule,
+    productionDate
+  );
+
+  // Fetch rotation info for this worker on this production date
+  try {
+    const shiftInfo = await getWorkerShiftInfo(workerId, effectiveProductionDate);
+    
+    // Enrich result with rotation data
+    result.expected_shift = shiftInfo.shift;
+    result.team_code = shiftInfo.team_code;
+    result.is_weekend = shiftInfo.is_weekend;
+  } catch (error) {
+    // If rotation fetch fails, continue without rotation info
+    console.warn('Failed to fetch rotation info:', error);
+    result.expected_shift = null;
+    result.team_code = null;
+    result.is_weekend = false;
+  }
+
+  return result;
 }
