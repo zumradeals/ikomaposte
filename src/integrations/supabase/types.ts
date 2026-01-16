@@ -390,6 +390,36 @@ export type Database = {
           },
         ]
       }
+      fixed_shifts: {
+        Row: {
+          code: string
+          created_at: string
+          end_time: string
+          id: string
+          is_cross_day: boolean | null
+          name: string
+          start_time: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          end_time: string
+          id?: string
+          is_cross_day?: boolean | null
+          name: string
+          start_time: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          end_time?: string
+          id?: string
+          is_cross_day?: boolean | null
+          name?: string
+          start_time?: string
+        }
+        Relationships: []
+      }
       policy_audit_trail: {
         Row: {
           action: string
@@ -674,6 +704,51 @@ export type Database = {
           },
         ]
       }
+      rotation_config: {
+        Row: {
+          block_assignments: Json
+          blocks_per_cycle: number
+          created_at: string
+          cycle_start_date: string
+          days_per_block: number
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string
+          weekend_end_day: number | null
+          weekend_freeze_enabled: boolean | null
+          weekend_start_day: number | null
+        }
+        Insert: {
+          block_assignments: Json
+          blocks_per_cycle?: number
+          created_at?: string
+          cycle_start_date: string
+          days_per_block?: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string
+          weekend_end_day?: number | null
+          weekend_freeze_enabled?: boolean | null
+          weekend_start_day?: number | null
+        }
+        Update: {
+          block_assignments?: Json
+          blocks_per_cycle?: number
+          created_at?: string
+          cycle_start_date?: string
+          days_per_block?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string
+          weekend_end_day?: number | null
+          weekend_freeze_enabled?: boolean | null
+          weekend_start_day?: number | null
+        }
+        Relationships: []
+      }
       shift_patterns: {
         Row: {
           code: string
@@ -715,6 +790,36 @@ export type Database = {
           name?: string
           pattern_type?: Database["public"]["Enums"]["shift_pattern_type"]
           shifts?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          code: string
+          color: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
           updated_at?: string
         }
         Relationships: []
@@ -1066,6 +1171,7 @@ export type Database = {
           nom_affiche: string
           photo_url: string | null
           qr_token: string
+          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1077,6 +1183,7 @@ export type Database = {
           nom_affiche: string
           photo_url?: string | null
           qr_token?: string
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1088,6 +1195,7 @@ export type Database = {
           nom_affiche?: string
           photo_url?: string | null
           qr_token?: string
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1096,6 +1204,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workers_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -1171,6 +1286,10 @@ export type Database = {
       check_policy_conflicts: {
         Args: { p_work_date: string; p_worker_id: string }
         Returns: Json
+      }
+      count_working_days: {
+        Args: { p_end_date: string; p_start_date: string }
+        Returns: number
       }
       create_policy_version: {
         Args: {
@@ -1331,6 +1450,32 @@ export type Database = {
           civil_date_start: string
           production_end: string
           production_start: string
+        }[]
+      }
+      get_rotation_schedule: {
+        Args: { p_production_date: string }
+        Returns: {
+          block_number: number
+          cycle_day: number
+          end_time: string
+          is_cross_day: boolean
+          shift_code: string
+          shift_name: string
+          start_time: string
+          team_code: string
+          team_name: string
+        }[]
+      }
+      get_team_shift: {
+        Args: { p_production_date: string; p_team_code: string }
+        Returns: {
+          block_number: number
+          cycle_day: number
+          end_time: string
+          is_cross_day: boolean
+          shift_code: string
+          shift_name: string
+          start_time: string
         }[]
       }
       has_role: {
