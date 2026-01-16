@@ -8,6 +8,7 @@
 // - Pause: payée, exclue des calculs officiels (log interne uniquement)
 // - Statuts: PRESENT, RETARD, ABSENT, ANOMALIE (calculés automatiquement)
 // - Les anomalies sont exclues des totaux
+// - PRODUCTION DAY: 07:00 to 07:00 next day (mandatory for night shifts)
 //
 
 import { WorkEvent, WorkEventType } from '@/types/work-events';
@@ -30,6 +31,7 @@ import {
   getDayOfWeek,
 } from './decision-table';
 import { WorkSchedule, DayStatusType, AnomalyCodeType } from '@/types/business-rules';
+import { getProductionDate, getProductionDayBoundaries, DEFAULT_TIMEZONE } from './production-day';
 
 interface WorkerCategory {
   taux_horaire: number;
@@ -40,6 +42,10 @@ interface CalculationOptions {
   autoCloseHour?: number;
   autoCloseMinute?: number;
   workDate: Date;
+  /** Production date (YYYY-MM-DD) for the calculation */
+  productionDate?: string;
+  /** Timezone for production day calculation */
+  timezone?: string;
   /** Horaire théorique pour ce jour (Phase 7) */
   schedule?: WorkSchedule | null;
 }
@@ -49,6 +55,8 @@ export interface CalculationResultPhase7 extends CalculationResult {
   day_status?: DayStatusType;
   anomaly_code?: AnomalyCodeType | null;
   late_minutes?: number;
+  /** Production date used for this calculation */
+  production_date?: string;
 }
 
 /**
@@ -243,10 +251,15 @@ export function calculateWorkerDay(
   workDate: Date,
   autoCloseHour?: number,
   autoCloseMinute?: number,
-  schedule?: WorkSchedule | null
+  schedule?: WorkSchedule | null,
+  productionDate?: string
 ): CalculationResultPhase7 {
   const warnings: string[] = [];
   const workDateStr = workDate.toISOString().split('T')[0];
+  
+  // Calculate production date if not provided
+  const effectiveProductionDate = productionDate || 
+    getProductionDate(workDate, DEFAULT_TIMEZONE).production_date;
 
   try {
     // Apply corrections to get effective events
@@ -268,6 +281,7 @@ export function calculateWorkerDay(
         summary: {
           worker_id: events[0]?.worker_id || '',
           work_date: workDateStr,
+          production_date: effectiveProductionDate,
           total_work_minutes: 0,
           total_pause_minutes: 0, // Log interne
           total_amount: 0,
@@ -285,6 +299,7 @@ export function calculateWorkerDay(
         day_status: 'ABSENT',
         anomaly_code: null,
         late_minutes: 0,
+        production_date: effectiveProductionDate,
       };
     }
 
@@ -319,6 +334,7 @@ export function calculateWorkerDay(
         summary: {
           worker_id: trustedEvents[0]?.worker_id || events[0]?.worker_id || '',
           work_date: workDateStr,
+          production_date: effectiveProductionDate,
           total_work_minutes: 0, // ANOMALIE = exclu des totaux
           total_pause_minutes: 0,
           total_amount: 0, // Pas de paiement sur anomalie
@@ -336,6 +352,7 @@ export function calculateWorkerDay(
         day_status: 'ANOMALIE',
         anomaly_code: decisionResult.anomaly_code,
         late_minutes: 0,
+        production_date: effectiveProductionDate,
       };
     }
 
@@ -349,6 +366,7 @@ export function calculateWorkerDay(
         day_status: 'ANOMALIE',
         anomaly_code: 'NO_CHECKIN',
         late_minutes: 0,
+        production_date: effectiveProductionDate,
       };
     }
 
@@ -369,6 +387,7 @@ export function calculateWorkerDay(
         day_status: 'ANOMALIE',
         anomaly_code: 'INVALID_SEQUENCE',
         late_minutes: 0,
+        production_date: effectiveProductionDate,
       };
     }
 
@@ -399,6 +418,7 @@ export function calculateWorkerDay(
     const summary = {
       worker_id: trustedEvents[0].worker_id,
       work_date: workDateStr,
+      production_date: effectiveProductionDate,
       total_work_minutes: totalWorkMinutes,
       total_pause_minutes: totalPauseMinutes, // Log interne uniquement
       total_amount: amount,
@@ -422,6 +442,7 @@ export function calculateWorkerDay(
       day_status: decisionResult.day_status,
       anomaly_code: null,
       late_minutes: decisionResult.late_minutes,
+      production_date: effectiveProductionDate,
     };
   } catch (error) {
     return {
@@ -432,6 +453,7 @@ export function calculateWorkerDay(
       day_status: 'ANOMALIE',
       anomaly_code: null,
       late_minutes: 0,
+      production_date: workDate.toISOString().split('T')[0],
     };
   }
 }

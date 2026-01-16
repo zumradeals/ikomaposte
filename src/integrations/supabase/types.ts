@@ -827,6 +827,7 @@ export type Database = {
           id: string
           incident_flag: string | null
           occurred_at: string
+          production_date: string | null
           snapshot_hash: string | null
           snapshot_url: string | null
           trust_reason: string | null
@@ -842,6 +843,7 @@ export type Database = {
           id?: string
           incident_flag?: string | null
           occurred_at?: string
+          production_date?: string | null
           snapshot_hash?: string | null
           snapshot_url?: string | null
           trust_reason?: string | null
@@ -857,6 +859,7 @@ export type Database = {
           id?: string
           incident_flag?: string | null
           occurred_at?: string
+          production_date?: string | null
           snapshot_hash?: string | null
           snapshot_url?: string | null
           trust_reason?: string | null
@@ -942,6 +945,7 @@ export type Database = {
           locked_by: string | null
           notes: string | null
           policy_version_id: string | null
+          production_date: string | null
           revision: number
           segments_json: Json | null
           supersedes_id: string | null
@@ -977,6 +981,7 @@ export type Database = {
           locked_by?: string | null
           notes?: string | null
           policy_version_id?: string | null
+          production_date?: string | null
           revision?: number
           segments_json?: Json | null
           supersedes_id?: string | null
@@ -1012,6 +1017,7 @@ export type Database = {
           locked_by?: string | null
           notes?: string | null
           policy_version_id?: string | null
+          production_date?: string | null
           revision?: number
           segments_json?: Json | null
           supersedes_id?: string | null
@@ -1230,6 +1236,7 @@ export type Database = {
           locked_by: string | null
           notes: string | null
           policy_version_id: string | null
+          production_date: string | null
           revision: number
           segments_json: Json | null
           supersedes_id: string | null
@@ -1277,12 +1284,54 @@ export type Database = {
           week_pattern: Json
         }[]
       }
+      get_events_for_production_day: {
+        Args: {
+          p_production_date: string
+          p_timezone?: string
+          p_worker_id: string
+        }
+        Returns: {
+          client_occurred_at: string | null
+          created_at: string
+          device_id: string
+          device_secret: string | null
+          event_type: Database["public"]["Enums"]["work_event_type"]
+          id: string
+          incident_flag: string | null
+          occurred_at: string
+          production_date: string | null
+          snapshot_hash: string | null
+          snapshot_url: string | null
+          trust_reason: string | null
+          trust_status: string
+          worker_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "work_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_next_document_sequence: {
         Args: {
           p_document_type: Database["public"]["Enums"]["document_type"]
           p_period_month: string
         }
         Returns: number
+      }
+      get_production_date: {
+        Args: { p_timestamp: string; p_timezone?: string }
+        Returns: string
+      }
+      get_production_day_boundaries: {
+        Args: { p_production_date: string; p_timezone?: string }
+        Returns: {
+          civil_date_end: string
+          civil_date_start: string
+          production_end: string
+          production_start: string
+        }[]
       }
       has_role: {
         Args: {
@@ -1397,6 +1446,7 @@ export type Database = {
           locked_by: string | null
           notes: string | null
           policy_version_id: string | null
+          production_date: string | null
           revision: number
           segments_json: Json | null
           supersedes_id: string | null

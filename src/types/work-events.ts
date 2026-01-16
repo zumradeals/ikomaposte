@@ -17,6 +17,8 @@ export interface WorkEvent {
   trust_reason: string | null;
   client_occurred_at: string | null;
   created_at: string;
+  /** Production date (07:00-07:00 cycle) - auto-computed by database */
+  production_date?: string;
 }
 
 export interface WorkEventWithWorker extends WorkEvent {
