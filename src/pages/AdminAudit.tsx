@@ -20,6 +20,9 @@ import {
   Calendar,
   Filter,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   CheckCircle,
   AlertTriangle,
   XCircle,
@@ -34,8 +37,8 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/contexts/AdminContext';
 import {
   useAuditPeriodSummary,
-  useAuditRecords,
-  usePolicyChanges,
+  usePaginatedAuditRecords,
+  usePaginatedPolicyChanges,
   useReplayCalculation,
   useVerifyEventIntegrity,
 } from '@/hooks/useAuditTrail';
@@ -137,6 +140,109 @@ function getPolicyActionBadge(action: string) {
 // MAIN COMPONENT
 // ============================================
 
+// ============================================
+// PAGINATION COMPONENT
+// ============================================
+
+const PAGE_SIZE = 20;
+
+interface PaginationControlsProps {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  isLoading?: boolean;
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPageChange,
+  isLoading,
+}: PaginationControlsProps) {
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalCount);
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+      <div className="text-sm text-muted-foreground">
+        Affichage {startItem}-{endItem} sur {totalCount} résultats
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1 || isLoading}
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1 || isLoading}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        {/* Page numbers */}
+        <div className="flex items-center gap-1">
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum: number;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (currentPage <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = currentPage - 2 + i;
+            }
+            
+            return (
+              <Button
+                key={pageNum}
+                variant={pageNum === currentPage ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onPageChange(pageNum)}
+                disabled={isLoading}
+                className="min-w-[36px]"
+              >
+                {pageNum}
+              </Button>
+            );
+          })}
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || isLoading}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages || isLoading}
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
 export default function AdminAudit() {
   const { isUnlocked } = useAdmin();
   const navigate = useNavigate();
@@ -150,6 +256,16 @@ export default function AdminAudit() {
   );
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('calculations');
+
+  // Pagination state
+  const [tracesPage, setTracesPage] = useState(1);
+  const [policyChangesPage, setPolicyChangesPage] = useState(1);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setTracesPage(1);
+    setPolicyChangesPage(1);
+  }, [dateFrom, dateTo, selectedWorkerId]);
 
   // Detail modals
   const [selectedTrace, setSelectedTrace] = useState<CalculationAuditRecord | null>(null);
@@ -167,16 +283,31 @@ export default function AdminAudit() {
     selectedWorkerId !== 'all' ? selectedWorkerId : undefined
   );
 
-  const { data: auditRecords, isLoading: recordsLoading, refetch: refetchRecords } = useAuditRecords({
-    worker_id: selectedWorkerId !== 'all' ? selectedWorkerId : undefined,
-    production_date_from: dateFrom,
-    production_date_to: dateTo,
-    limit: 100,
-  });
+  const { 
+    data: auditData, 
+    isLoading: recordsLoading, 
+    isFetching: recordsFetching,
+    refetch: refetchRecords 
+  } = usePaginatedAuditRecords(
+    {
+      worker_id: selectedWorkerId !== 'all' ? selectedWorkerId : undefined,
+      production_date_from: dateFrom,
+      production_date_to: dateTo,
+    },
+    tracesPage,
+    PAGE_SIZE
+  );
 
-  const { data: policyChanges, isLoading: policyChangesLoading, refetch: refetchPolicyChanges } = usePolicyChanges(
+  const { 
+    data: policyData, 
+    isLoading: policyChangesLoading, 
+    isFetching: policyChangesFetching,
+    refetch: refetchPolicyChanges 
+  } = usePaginatedPolicyChanges(
     dateFrom + 'T00:00:00Z',
-    dateTo + 'T23:59:59Z'
+    dateTo + 'T23:59:59Z',
+    policyChangesPage,
+    PAGE_SIZE
   );
 
   // Mutations
@@ -382,82 +513,96 @@ export default function AdminAudit() {
                   <div className="flex items-center justify-center p-12">
                     <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
                   </div>
-                ) : !auditRecords?.length ? (
+                ) : !auditData?.records?.length ? (
                   <div className="text-center p-12 text-muted-foreground">
                     <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p className="text-lg font-medium">Aucune trace trouvée</p>
                     <p className="text-sm mt-1">Aucun calcul enregistré pour cette période</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Travailleur</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead>Politique</TableHead>
-                          <TableHead>Durée travaillée</TableHead>
-                          <TableHead>Retard</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {auditRecords.map((record) => (
-                          <TableRow key={record.id}>
-                            <TableCell>
-                              {format(parseISO(record.production_date), 'dd/MM/yyyy', { locale: fr })}
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {getWorkerName(record.worker_id)}
-                            </TableCell>
-                            <TableCell>
-                              {getStatusBadge(record.calculation_outputs.day_status)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {record.policy_code || 'N/A'}
-                                {record.policy_version_number && ` v${record.policy_version_number}`}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {record.calculation_outputs.rounded_worked_minutes} min
-                            </TableCell>
-                            <TableCell>
-                              {record.calculation_outputs.late_minutes > 0 ? (
-                                <span className="text-warning">
-                                  {record.calculation_outputs.late_minutes} min
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex gap-1 justify-end">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setSelectedTrace(record);
-                                    setShowTraceDetail(true);
-                                  }}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleReplay(record)}
-                                  disabled={replayMutation.isPending}
-                                >
-                                  <Play className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
+                  <div className="space-y-4">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Travailleur</TableHead>
+                            <TableHead>Statut</TableHead>
+                            <TableHead>Politique</TableHead>
+                            <TableHead>Durée travaillée</TableHead>
+                            <TableHead>Retard</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {auditData.records.map((record) => (
+                            <TableRow key={record.id}>
+                              <TableCell>
+                                {format(parseISO(record.production_date), 'dd/MM/yyyy', { locale: fr })}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {getWorkerName(record.worker_id)}
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(record.calculation_outputs.day_status)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {record.policy_code || 'N/A'}
+                                  {record.policy_version_number && ` v${record.policy_version_number}`}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {record.calculation_outputs.rounded_worked_minutes} min
+                              </TableCell>
+                              <TableCell>
+                                {record.calculation_outputs.late_minutes > 0 ? (
+                                  <span className="text-warning">
+                                    {record.calculation_outputs.late_minutes} min
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex gap-1 justify-end">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setSelectedTrace(record);
+                                      setShowTraceDetail(true);
+                                    }}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleReplay(record)}
+                                    disabled={replayMutation.isPending}
+                                  >
+                                    <Play className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    
+                    {/* Pagination */}
+                    {auditData.totalPages > 1 && (
+                      <PaginationControls
+                        currentPage={auditData.page}
+                        totalPages={auditData.totalPages}
+                        totalCount={auditData.totalCount}
+                        pageSize={auditData.pageSize}
+                        onPageChange={setTracesPage}
+                        isLoading={recordsFetching}
+                      />
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -478,61 +623,75 @@ export default function AdminAudit() {
                   <div className="flex items-center justify-center p-12">
                     <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
                   </div>
-                ) : !policyChanges?.length ? (
+                ) : !policyData?.changes?.length ? (
                   <div className="text-center p-12 text-muted-foreground">
                     <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p className="text-lg font-medium">Aucun changement</p>
                     <p className="text-sm mt-1">Aucune modification de politique pour cette période</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Politique</TableHead>
-                          <TableHead>Action</TableHead>
-                          <TableHead>Version</TableHead>
-                          <TableHead>Justification</TableHead>
-                          <TableHead className="text-right">Détails</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {policyChanges.map((change) => (
-                          <TableRow key={change.id}>
-                            <TableCell>
-                              {format(parseISO(change.changed_at), 'dd/MM/yyyy HH:mm', { locale: fr })}
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {getPolicyName(change.policy_id)}
-                            </TableCell>
-                            <TableCell>
-                              {getPolicyActionBadge(change.action)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">v{change.version_at_change}</Badge>
-                            </TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {change.justification || (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedPolicyChange(change);
-                                  setShowPolicyDetail(true);
-                                }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
+                  <div className="space-y-4">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Politique</TableHead>
+                            <TableHead>Action</TableHead>
+                            <TableHead>Version</TableHead>
+                            <TableHead>Justification</TableHead>
+                            <TableHead className="text-right">Détails</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {policyData.changes.map((change) => (
+                            <TableRow key={change.id}>
+                              <TableCell>
+                                {format(parseISO(change.changed_at), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {getPolicyName(change.policy_id)}
+                              </TableCell>
+                              <TableCell>
+                                {getPolicyActionBadge(change.action)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary">v{change.version_at_change}</Badge>
+                              </TableCell>
+                              <TableCell className="max-w-[200px] truncate">
+                                {change.justification || (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedPolicyChange(change);
+                                    setShowPolicyDetail(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    
+                    {/* Pagination */}
+                    {policyData.totalPages > 1 && (
+                      <PaginationControls
+                        currentPage={policyData.page}
+                        totalPages={policyData.totalPages}
+                        totalCount={policyData.totalCount}
+                        pageSize={policyData.pageSize}
+                        onPageChange={setPolicyChangesPage}
+                        isLoading={policyChangesFetching}
+                      />
+                    )}
                   </div>
                 )}
               </CardContent>
