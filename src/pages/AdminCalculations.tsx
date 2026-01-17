@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -7,6 +7,7 @@ import {
   useBatchCalculateSummaries,
   exportSummariesToCSV 
 } from '@/hooks/useWorkSummaries';
+import { useLatestSummaryDay } from '@/hooks/useLatestActivity';
 import { formatMinutesAsTime, formatAmount } from '@/lib/work-calculator';
 import { WorkSummaryWithWorker } from '@/types/work-summaries';
 import { 
@@ -49,15 +50,32 @@ import SummaryDetailModal from '@/components/admin/SummaryDetailModal';
 export default function AdminCalculations() {
   const { isUnlocked } = useAdmin();
   const navigate = useNavigate();
-  
+
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>({
     start: startOfDay(new Date()),
     end: endOfDay(new Date()),
   });
   const [selectedSummary, setSelectedSummary] = useState<WorkSummaryWithWorker | null>(null);
-  
+
   const { data: summaries, isLoading, refetch } = useSummaries(dateRange.start, dateRange.end);
   const batchCalculate = useBatchCalculateSummaries();
+
+  // Demo-friendly behavior: if today has no calculations, jump to the most recent day with summaries.
+  const { data: latestSummaryDay } = useLatestSummaryDay();
+  const didAutoSelectRef = useRef(false);
+
+  useEffect(() => {
+    if (didAutoSelectRef.current) return;
+    if (isLoading) return;
+
+    if ((summaries?.length || 0) === 0 && latestSummaryDay) {
+      didAutoSelectRef.current = true;
+      setDateRange({
+        start: startOfDay(latestSummaryDay),
+        end: endOfDay(latestSummaryDay),
+      });
+    }
+  }, [isLoading, summaries, latestSummaryDay]);
 
   if (!isUnlocked) {
     navigate('/');
