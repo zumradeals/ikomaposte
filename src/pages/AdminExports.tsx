@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { 
   Download, 
   FileSpreadsheet, 
@@ -25,8 +26,9 @@ import {
   Info,
   Shield,
   FileCheck,
+  Layers,
 } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth, setMonth, setYear } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, setMonth, setYear, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   useExportData,
@@ -42,9 +44,12 @@ import {
   useMonthlyExport,
 } from '@/hooks/useOfficialExports';
 import { useRawEventExport } from '@/hooks/useRawEventExport';
+import { useBatchRawEventExport, BatchExportSummary } from '@/hooks/useBatchRawEventExport';
 import { PDFGeneratorCard } from '@/components/admin/PDFGeneratorCard';
 import { DocumentHistoryTable } from '@/components/admin/DocumentHistoryTable';
 import { cn } from '@/lib/utils';
+
+const MAX_BATCH_DAYS = 31;
 
 export default function AdminExports() {
   // Date range state for legacy exports
@@ -62,6 +67,12 @@ export default function AdminExports() {
 
   // Raw events export state
   const [rawEventDate, setRawEventDate] = useState<Date>(new Date());
+  
+  // Batch export state
+  const [batchStartDate, setBatchStartDate] = useState<Date>(startOfMonth(new Date()));
+  const [batchEndDate, setBatchEndDate] = useState<Date>(new Date());
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [batchSummary, setBatchSummary] = useState<BatchExportSummary | null>(null);
 
   // Fetch data
   const { data: exportData, isLoading } = useExportData(dateRange.from, dateRange.to);
@@ -82,6 +93,38 @@ export default function AdminExports() {
   
   // Raw events export mutation
   const rawEventExport = useRawEventExport();
+  
+  // Batch raw events export mutation
+  const batchRawEventExport = useBatchRawEventExport();
+
+  // Derived data - batch days count
+  const batchDaysCount = differenceInDays(batchEndDate, batchStartDate) + 1;
+  const isBatchValid = batchDaysCount > 0 && batchDaysCount <= MAX_BATCH_DAYS;
+
+  // Handle batch export
+  const handleBatchExport = () => {
+    setBatchSummary(null);
+    setBatchProgress({ current: 0, total: batchDaysCount });
+    
+    batchRawEventExport.mutate(
+      {
+        startDate: batchStartDate,
+        endDate: batchEndDate,
+        onProgress: (current, total) => {
+          setBatchProgress({ current, total });
+        },
+      },
+      {
+        onSuccess: (summary) => {
+          setBatchSummary(summary);
+          setBatchProgress(null);
+        },
+        onError: () => {
+          setBatchProgress(null);
+        },
+      }
+    );
+  };
 
   // Derived data
   const stats = exportData?.stats;
@@ -544,59 +587,188 @@ export default function AdminExports() {
           </CardContent>
         </Card>
 
-        {/* Raw Events Export - Prominent Position */}
-        <Card className="border-2 border-primary/50 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              Export Événements Bruts (CSV)
-            </CardTitle>
-            <CardDescription>
-              Export conforme au schéma validé — 21 colonnes, un événement par ligne
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-sm space-y-1 bg-muted/50 p-3 rounded">
-              <p><strong>Format:</strong> ikoma_poste_events_YYYY-MM-DD.csv</p>
-              <p><strong>Colonnes:</strong> event_id, event_timestamp, worker_matricule, action_type...</p>
-              <p><strong>Règles:</strong> Pas d'agrégation, pas de calcul, données brutes uniquement</p>
-            </div>
+        {/* Raw Events Export Section */}
+        <div className="grid md:grid-cols-2 gap-4">
+          {/* Single Day Export */}
+          <Card className="border-2 border-primary/50 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-primary" />
+                Export événements bruts (journalier)
+              </CardTitle>
+              <CardDescription>
+                Export conforme — 21 colonnes, un événement par ligne
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm space-y-1 bg-muted/50 p-3 rounded">
+                <p><strong>Format:</strong> ikoma_poste_events_YYYY-MM-DD.csv</p>
+                <p><strong>Colonnes:</strong> event_id, event_timestamp, worker_matricule, action_type...</p>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <label className="text-sm font-medium">Date de production:</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start text-left font-normal min-w-[180px]">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(rawEventDate, 'dd MMM yyyy', { locale: fr })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={rawEventDate}
-                    onSelect={(date) => date && setRawEventDate(date)}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="text-sm font-medium">Date:</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="justify-start text-left font-normal min-w-[180px]">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(rawEventDate, 'dd MMM yyyy', { locale: fr })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={rawEventDate}
+                      onSelect={(date) => date && setRawEventDate(date)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
 
               <Button 
                 onClick={() => rawEventExport.mutate(rawEventDate)}
                 disabled={rawEventExport.isPending}
-                className="gap-2"
+                className="w-full gap-2"
               >
                 <Download className="h-4 w-4" />
                 {rawEventExport.isPending ? 'Export en cours...' : 'Exporter CSV'}
               </Button>
-            </div>
 
-            <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
-              <strong>Normalisation appliquée:</strong> TAKE→POINTAGE_ENTREE, END→POINTAGE_SORTIE, trusted→NOMINAL
-            </div>
-          </CardContent>
-        </Card>
+              <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                <strong>Normalisation:</strong> TAKE→POINTAGE_ENTREE, END→POINTAGE_SORTIE, trusted→NOMINAL
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Batch Export */}
+          <Card className="border-2 border-primary/50 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5 text-primary" />
+                Export batch événements bruts
+              </CardTitle>
+              <CardDescription>
+                Export multi-jours — max {MAX_BATCH_DAYS} jours par batch
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium block mb-2">Début:</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(batchStartDate, 'dd MMM yyyy', { locale: fr })}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={batchStartDate}
+                        onSelect={(date) => date && setBatchStartDate(date)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Fin:</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(batchEndDate, 'dd MMM yyyy', { locale: fr })}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={batchEndDate}
+                        onSelect={(date) => date && setBatchEndDate(date)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {/* Validation / Info */}
+              <div className={cn(
+                "text-sm p-2 rounded flex items-center gap-2",
+                isBatchValid ? "bg-muted/50" : "bg-destructive/10 text-destructive"
+              )}>
+                {isBatchValid ? (
+                  <>
+                    <Info className="h-4 w-4" />
+                    <span>{batchDaysCount} jour(s) sélectionné(s)</span>
+                  </>
+                ) : batchDaysCount > MAX_BATCH_DAYS ? (
+                  <>
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Maximum {MAX_BATCH_DAYS} jours (actuellement: {batchDaysCount})</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>La date de fin doit être après la date de début</span>
+                  </>
+                )}
+              </div>
+
+              {/* Progress */}
+              {batchProgress && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Export en cours...</span>
+                    <span>{batchProgress.current}/{batchProgress.total}</span>
+                  </div>
+                  <Progress value={(batchProgress.current / batchProgress.total) * 100} />
+                </div>
+              )}
+
+              {/* Summary */}
+              {batchSummary && !batchProgress && (
+                <div className="bg-muted/50 p-3 rounded space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    {batchSummary.failedCount === 0 ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    )}
+                    <span>Export terminé</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                      <span>{batchSummary.successCount} fichiers</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-3 w-3 text-destructive" />
+                      <span>{batchSummary.failedCount} échecs</span>
+                    </div>
+                    <div className="col-span-2 text-muted-foreground">
+                      Total: {batchSummary.totalRows} lignes exportées
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Button 
+                onClick={handleBatchExport}
+                disabled={!isBatchValid || batchRawEventExport.isPending}
+                className="w-full gap-2"
+              >
+                <Layers className="h-4 w-4" />
+                {batchRawEventExport.isPending ? 'Export batch en cours...' : 'Exporter batch CSV'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Other Export Buttons */}
         <div className="grid md:grid-cols-2 gap-4">
