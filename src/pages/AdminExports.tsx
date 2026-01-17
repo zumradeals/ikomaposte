@@ -41,8 +41,10 @@ import {
   useDailyExport,
   useMonthlyExport,
 } from '@/hooks/useOfficialExports';
+import { useRawEventExport } from '@/hooks/useRawEventExport';
 import { PDFGeneratorCard } from '@/components/admin/PDFGeneratorCard';
 import { DocumentHistoryTable } from '@/components/admin/DocumentHistoryTable';
+import { cn } from '@/lib/utils';
 
 export default function AdminExports() {
   // Date range state for legacy exports
@@ -57,6 +59,9 @@ export default function AdminExports() {
   // Dispute export state
   const [selectedWorker, setSelectedWorker] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  // Raw events export state
+  const [rawEventDate, setRawEventDate] = useState<Date>(new Date());
 
   // Fetch data
   const { data: exportData, isLoading } = useExportData(dateRange.from, dateRange.to);
@@ -74,6 +79,9 @@ export default function AdminExports() {
   // Official export mutations
   const dailyExport = useDailyExport();
   const monthlyExport = useMonthlyExport();
+  
+  // Raw events export mutation
+  const rawEventExport = useRawEventExport();
 
   // Derived data
   const stats = exportData?.stats;
@@ -536,7 +544,61 @@ export default function AdminExports() {
           </CardContent>
         </Card>
 
-        {/* Export Buttons */}
+        {/* Raw Events Export - Prominent Position */}
+        <Card className="border-2 border-primary/50 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              Export Événements Bruts (CSV)
+            </CardTitle>
+            <CardDescription>
+              Export conforme au schéma validé — 21 colonnes, un événement par ligne
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm space-y-1 bg-muted/50 p-3 rounded">
+              <p><strong>Format:</strong> ikoma_poste_events_YYYY-MM-DD.csv</p>
+              <p><strong>Colonnes:</strong> event_id, event_timestamp, worker_matricule, action_type...</p>
+              <p><strong>Règles:</strong> Pas d'agrégation, pas de calcul, données brutes uniquement</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="text-sm font-medium">Date de production:</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start text-left font-normal min-w-[180px]">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(rawEventDate, 'dd MMM yyyy', { locale: fr })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={rawEventDate}
+                    onSelect={(date) => date && setRawEventDate(date)}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Button 
+                onClick={() => rawEventExport.mutate(rawEventDate)}
+                disabled={rawEventExport.isPending}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {rawEventExport.isPending ? 'Export en cours...' : 'Exporter CSV'}
+              </Button>
+            </div>
+
+            <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+              <strong>Normalisation appliquée:</strong> TAKE→POINTAGE_ENTREE, END→POINTAGE_SORTIE, trusted→NOMINAL
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Other Export Buttons */}
         <div className="grid md:grid-cols-2 gap-4">
           {/* Payroll CSV */}
           <Card>
