@@ -78,6 +78,7 @@ async function fetchEventsForDate(date: Date): Promise<SourceEventData[]> {
   });
   
   // Map to SourceEventData format with null safety
+  // Include dateStr as export_date fallback for work_date
   return (data ?? []).map((row: any) => ({
     id: row.id ?? '',
     occurred_at: row.occurred_at ?? '',
@@ -91,6 +92,7 @@ async function fetchEventsForDate(date: Date): Promise<SourceEventData[]> {
     worker_matricule: row.workers?.matricule ?? '',
     worker_name: row.workers?.nom_affiche ?? '',
     device_label: deviceMap.get(row.device_id) ?? null,
+    export_date: dateStr, // Fallback for work_date if production_date is null
   }));
 }
 
