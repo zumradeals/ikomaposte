@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,6 +47,7 @@ import { useRawEventExport } from '@/hooks/useRawEventExport';
 import { useBatchRawEventExport, BatchExportSummary } from '@/hooks/useBatchRawEventExport';
 import { PDFGeneratorCard } from '@/components/admin/PDFGeneratorCard';
 import { DocumentHistoryTable } from '@/components/admin/DocumentHistoryTable';
+import { useLatestEventDay, useLatestSummaryDay, useLatestValidatedSummaryDay } from '@/hooks/useLatestActivity';
 import { cn } from '@/lib/utils';
 
 const MAX_BATCH_DAYS = 31;
@@ -67,13 +68,36 @@ export default function AdminExports() {
 
   // Raw events export state
   const [rawEventDate, setRawEventDate] = useState<Date>(new Date());
-  
+
   // Batch export state
   const [batchStartDate, setBatchStartDate] = useState<Date>(startOfMonth(new Date()));
   const [batchEndDate, setBatchEndDate] = useState<Date>(new Date());
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [batchSummary, setBatchSummary] = useState<BatchExportSummary | null>(null);
 
+  // Demo-friendly defaults: if current month has no data, auto-focus the latest month that has data.
+  const { data: latestEventDay } = useLatestEventDay();
+  const { data: latestSummaryDay } = useLatestSummaryDay();
+  const { data: latestValidatedSummaryDay } = useLatestValidatedSummaryDay();
+  const didInitRef = useRef(false);
+
+  useEffect(() => {
+    if (didInitRef.current) return;
+
+    const baseDate = latestValidatedSummaryDay ?? latestSummaryDay ?? latestEventDay;
+    if (!baseDate) return;
+
+    const monthStart = startOfMonth(baseDate);
+    const monthEnd = endOfMonth(baseDate);
+
+    didInitRef.current = true;
+    setDateRange({ from: monthStart, to: monthEnd });
+    setOfficialMonth(monthStart);
+    setSelectedDate(baseDate);
+    setRawEventDate(baseDate);
+    setBatchStartDate(monthStart);
+    setBatchEndDate(monthEnd);
+  }, [latestEventDay, latestSummaryDay, latestValidatedSummaryDay]);
   // Fetch data
   const { data: exportData, isLoading } = useExportData(dateRange.from, dateRange.to);
   const { data: workers } = useWorkers();

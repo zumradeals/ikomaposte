@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { startOfDay, endOfDay } from 'date-fns';
 import { 
   WorkEvent, 
   WorkEventWithWorker, 
@@ -83,6 +84,50 @@ export function useWorkerDayEvents(workerId: string | undefined) {
       return data as WorkEvent[];
     },
     enabled: !!workerId,
+  });
+}
+
+// Get all events for a given day (admin view)
+export function useDayEvents(
+  date: Date,
+  trustFilter?: TrustStatus | 'all',
+  options?: { refetchInterval?: number }
+) {
+  return useQuery({
+    queryKey: ['day-events', date.toISOString().slice(0, 10), trustFilter],
+    queryFn: async () => {
+      const dayStart = startOfDay(date);
+      const dayEnd = endOfDay(date);
+
+      let query = supabase
+        .from('work_events')
+        .select(`
+          *,
+          workers (
+            id,
+            nom_affiche,
+            matricule,
+            photo_url,
+            categories (
+              id,
+              nom
+            )
+          )
+        `)
+        .gte('occurred_at', dayStart.toISOString())
+        .lte('occurred_at', dayEnd.toISOString())
+        .order('occurred_at', { ascending: false });
+
+      if (trustFilter && trustFilter !== 'all') {
+        query = query.eq('trust_status', trustFilter);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as WorkEventWithWorker[];
+    },
+    refetchInterval: options?.refetchInterval,
+    enabled: !!date,
   });
 }
 
