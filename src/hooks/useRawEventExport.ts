@@ -6,11 +6,15 @@
  * - One row per event
  * - No aggregation, no filtering except by date
  * - Deterministic ordering by event_timestamp
+ * 
+ * Date selection logic:
+ * - Primary: production_date = target date
+ * - Fallback: occurred_at within calendar day bounds (for events without production_date)
  */
 
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import {
   SourceEventData,
@@ -24,15 +28,19 @@ import {
 // ============================================================================
 
 /**
- * Fetches all events for a specific calendar day
+ * Fetches all events for a specific date using OR logic:
+ * 1. production_date = target date, OR
+ * 2. occurred_at within calendar day bounds (for events without production_date)
+ * 
  * Joined with workers and devices for complete data
  * Ordered by occurred_at for deterministic output
  */
 async function fetchEventsForDate(date: Date): Promise<SourceEventData[]> {
   const dateStr = format(date, 'yyyy-MM-dd');
+  const dayStart = startOfDay(date).toISOString();
+  const dayEnd = endOfDay(date).toISOString();
   
-  // Query events where production_date matches the target date
-  // OR where occurred_at falls within the calendar day (for events without production_date)
+  // Use OR filter: production_date matches OR occurred_at within calendar day
   const { data, error } = await supabase
     .from('work_events')
     .select(`
@@ -48,32 +56,41 @@ async function fetchEventsForDate(date: Date): Promise<SourceEventData[]> {
       workers!inner (
         matricule,
         nom_affiche
-      ),
-      devices:device_id (
-        label
       )
     `)
-    .eq('production_date', dateStr)
+    .or(`production_date.eq.${dateStr},and(production_date.is.null,occurred_at.gte.${dayStart},occurred_at.lte.${dayEnd})`)
     .order('occurred_at', { ascending: true });
   
   if (error) {
     throw new Error(`Failed to fetch events: ${error.message}`);
   }
   
-  // Map to SourceEventData format
+  // Fetch device labels separately to avoid FK issues
+  const deviceIds = [...new Set((data ?? []).map((e: any) => e.device_id))];
+  const { data: devices } = await supabase
+    .from('devices')
+    .select('device_id, label')
+    .in('device_id', deviceIds);
+  
+  const deviceMap = new Map<string, string>();
+  (devices ?? []).forEach((d: any) => {
+    deviceMap.set(d.device_id, d.label ?? '');
+  });
+  
+  // Map to SourceEventData format with null safety
   return (data ?? []).map((row: any) => ({
-    id: row.id,
-    occurred_at: row.occurred_at,
-    event_type: row.event_type,
-    device_id: row.device_id,
-    trust_status: row.trust_status,
+    id: row.id ?? '',
+    occurred_at: row.occurred_at ?? '',
+    event_type: row.event_type ?? '',
+    device_id: row.device_id ?? '',
+    trust_status: row.trust_status ?? '',
     trust_reason: row.trust_reason,
     production_date: row.production_date,
     incident_flag: row.incident_flag,
-    created_at: row.created_at,
+    created_at: row.created_at ?? '',
     worker_matricule: row.workers?.matricule ?? '',
     worker_name: row.workers?.nom_affiche ?? '',
-    device_label: row.devices?.label ?? null,
+    device_label: deviceMap.get(row.device_id) ?? null,
   }));
 }
 
@@ -90,22 +107,22 @@ export interface DailyExportResult {
 
 /**
  * Executes the daily raw event export
- * - Fetches events for the specified date
- * - Maps to export schema
- * - Generates CSV
+ * - Fetches events for the specified date (production_date OR calendar day)
+ * - Maps to export schema with normalization
+ * - Generates CSV with strict column order
  * - Triggers download
  */
 async function executeDailyExport(date: Date): Promise<DailyExportResult> {
   const dateStr = format(date, 'yyyy-MM-dd');
   const filename = `ikoma_poste_events_${dateStr}.csv`;
   
-  // Fetch events
+  // Fetch events with OR logic
   const sourceEvents = await fetchEventsForDate(date);
   
-  // Map to export format
+  // Map to export format (normalization applied)
   const exportRows = sourceEvents.map(mapEventToRow);
   
-  // Generate CSV
+  // Generate CSV with strict schema
   const csvContent = generateRawEventCSV(exportRows);
   
   // Download
