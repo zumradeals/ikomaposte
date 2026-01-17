@@ -80,44 +80,111 @@ export interface SourceEventData {
   worker_name: string;
   // Joined device fields
   device_label: string | null;
+  // Export context (set by caller)
+  export_date?: string; // YYYY-MM-DD fallback for work_date
 }
 
 // ============================================================================
-// NORMALIZATION MAPPINGS (STRICT)
+// NORMALIZATION MAPPINGS (STRICT COMPLIANCE)
 // ============================================================================
 
 /**
  * Normalizes event_type to action_type
+ * STRICT: Only POINTAGE_ENTREE and POINTAGE_SORTIE are valid
+ * All other values → empty string
+ * 
  * TAKE → POINTAGE_ENTREE
  * END → POINTAGE_SORTIE
- * PAUSE → PAUSE
- * RESUME → REPRISE
+ * PAUSE, RESUME, other → "" (empty)
  */
 function normalizeActionType(eventType: string): string {
-  switch (eventType) {
+  const normalized = eventType.toUpperCase().trim();
+  switch (normalized) {
     case 'TAKE':
       return 'POINTAGE_ENTREE';
     case 'END':
       return 'POINTAGE_SORTIE';
-    case 'PAUSE':
-      return 'PAUSE';
-    case 'RESUME':
-      return 'REPRISE';
     default:
-      return eventType; // Preserve unknown values as-is
+      return ''; // Strict: only entry/exit allowed
   }
 }
 
 /**
- * Normalizes trust_status to channel_status
- * trusted → NOMINAL
- * untrusted/unknown/other → DEGRADE
+ * Normalizes trust_status to channel_status (CASE-INSENSITIVE)
+ * trusted/TRUSTED/Trusted → NOMINAL
+ * All other values → DEGRADE
  */
 function normalizeChannelStatus(trustStatus: string): string {
-  if (trustStatus === 'trusted') {
+  const normalized = trustStatus.toLowerCase().trim();
+  if (normalized === 'trusted') {
     return 'NOMINAL';
   }
   return 'DEGRADE';
+}
+
+/**
+ * Normalizes incident_flag to sequence_status
+ * STRICT: Only COHERENT, INCOMPLET, INATTENDU are valid outputs
+ * 
+ * Mapping:
+ * - null/empty/undefined → COHERENT (default)
+ * - NO_CHECKOUT, NO_CHECKIN, missing_end, missing_take → INCOMPLET
+ * - OUTLIER_DURATION, WEEKEND_PUNCH, invalid_sequence → INATTENDU
+ * - Other flags → INATTENDU
+ */
+function normalizeSequenceStatus(incidentFlag: string | null): string {
+  if (!incidentFlag || incidentFlag.trim() === '') {
+    return 'COHERENT';
+  }
+  
+  const normalized = incidentFlag.toUpperCase().trim();
+  
+  // INCOMPLET: Missing events
+  const incompletFlags = [
+    'NO_CHECKOUT',
+    'NO_CHECKIN',
+    'MISSING_END',
+    'MISSING_TAKE',
+    'DUPLICATE_CHECKIN',
+    'DUPLICATE_CHECKOUT',
+  ];
+  if (incompletFlags.includes(normalized)) {
+    return 'INCOMPLET';
+  }
+  
+  // INATTENDU: Unexpected/anomalous events
+  const inattenduFlags = [
+    'OUTLIER_DURATION',
+    'WEEKEND_PUNCH',
+    'INVALID_SEQUENCE',
+    'TIME_OVERLAP',
+    'FUTURE_EVENT',
+    'IMPOSSIBLE_DURATION',
+  ];
+  if (inattenduFlags.includes(normalized)) {
+    return 'INATTENDU';
+  }
+  
+  // Any other flag → INATTENDU (unexpected)
+  return 'INATTENDU';
+}
+
+/**
+ * Ensures timestamp is ISO 8601 with timezone
+ * If no timezone present, appends 'Z' (UTC)
+ */
+function normalizeTimestamp(timestamp: string): string {
+  if (!timestamp) return '';
+  
+  // Check if already has timezone indicator
+  const hasTimezone = /[Zz]$/.test(timestamp) || /[+-]\d{2}:\d{2}$/.test(timestamp);
+  
+  if (hasTimezone) {
+    return timestamp;
+  }
+  
+  // Append Z for UTC if no timezone
+  return timestamp + 'Z';
 }
 
 /**
@@ -143,23 +210,28 @@ function safeString(value: unknown): string {
 /**
  * Maps a single source event to the export row format
  * 
- * STRICT RULES:
- * - NO INFERENCE - missing fields are left empty
+ * STRICT COMPLIANCE RULES:
+ * - action_type: Only POINTAGE_ENTREE or POINTAGE_SORTIE (others → empty)
+ * - work_date: Never empty (fallback to export_date)
+ * - sequence_status: Only COHERENT, INCOMPLET, INATTENDU
+ * - event_timestamp: ISO 8601 with timezone
+ * - channel_status: Case-insensitive trusted check
+ * - event_state: Default NORMAL
+ * - state_set_by: Default SYSTEM
  * - NULL → empty string (never literal "null")
- * - action_type normalized to POINTAGE_ENTREE/POINTAGE_SORTIE
- * - channel_status normalized to NOMINAL/DEGRADE
- * - event_state defaults to NORMAL
- * - state_set_by defaults to SYSTEM
  */
 export function mapEventToRow(source: SourceEventData): RawEventRow {
+  // Determine work_date: production_date if available, else export_date
+  const workDate = safeString(source.production_date) || safeString(source.export_date);
+  
   return {
     // Direct mappings with null safety
     event_id: safeString(source.id),
-    event_timestamp: safeString(source.occurred_at), // Already ISO 8601 from Supabase
+    event_timestamp: normalizeTimestamp(safeString(source.occurred_at)),
     worker_matricule: safeString(source.worker_matricule),
     worker_name: safeString(source.worker_name),
     
-    // Normalized action type
+    // STRICT: Only POINTAGE_ENTREE or POINTAGE_SORTIE
     action_type: normalizeActionType(safeString(source.event_type)),
     
     // Device info
@@ -169,23 +241,23 @@ export function mapEventToRow(source: SourceEventData): RawEventRow {
     // No source data - empty string
     capture_mode: '',
     
-    // Normalized channel status
+    // Case-insensitive channel status
     channel_status: normalizeChannelStatus(safeString(source.trust_status)),
     
     // Defaults per contract
     event_state: 'NORMAL',
     state_reason: safeString(source.trust_reason),
-    state_set_at: safeString(source.created_at),
+    state_set_at: normalizeTimestamp(safeString(source.created_at)),
     state_set_by: 'SYSTEM',
     
-    // Production date as work_date
-    work_date: safeString(source.production_date),
+    // Work date: never empty
+    work_date: workDate,
     
     // No source data - empty string
     shift_code: '',
     
-    // Map incident_flag to sequence_status
-    sequence_status: safeString(source.incident_flag),
+    // STRICT: Normalized sequence status
+    sequence_status: normalizeSequenceStatus(source.incident_flag),
     
     // HR decision fields - no source, empty string
     hr_decision: '',
